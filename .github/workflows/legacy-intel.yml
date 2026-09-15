@@ -9,6 +9,7 @@ jobs:
   test-native:
     name: Tests (arm64)
     runs-on: macos-26
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Versiones
@@ -16,9 +17,15 @@ jobs:
           swift --version
           xcodebuild -version
       - name: Tests nativos arm64
-        env:
-          SWIFT_TEST_TARGET: arm64-apple-macosx26.0
-        run: swift test
+        timeout-minutes: 15
+        run: swift test 2>&1 | tee tests.log
+      - name: Subir log de tests si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-log
+          path: tests.log
+          if-no-files-found: ignore
 
   build-x86_64:
     name: Build x86_64 (macOS 11)
