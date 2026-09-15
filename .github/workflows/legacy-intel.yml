@@ -1,0 +1,62 @@
+name: legacy-intel
+
+on:
+  push:
+    branches: [legacy-intel]
+  workflow_dispatch:
+
+jobs:
+  test-native:
+    name: Tests (arm64)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versiones
+        run: |
+          swift --version
+          xcodebuild -version
+      - name: Tests nativos arm64
+        env:
+          SWIFT_TEST_TARGET: arm64-apple-macosx15.0
+        run: swift test
+
+  build-x86_64:
+    name: Build x86_64 (macOS 11)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versiones
+        run: swift --version
+      - name: Cross-compile x86_64 con deployment macOS 11
+        run: |
+          SDK=$(xcrun --sdk macosx --show-sdk-path)
+          swift build \
+            --triple x86_64-apple-macosx11.0 \
+            -sdk "$SDK" \
+            2>&1 | tee build.log
+      - name: Verificar arquitectura x86_64
+        run: |
+          BIN=$(swift build --triple x86_64-apple-macosx11.0 \
+            -sdk "$(xcrun --sdk macosx --show-sdk-path)" --show-bin-path)/Transcriptor
+          file "$BIN"
+          lipo -info "$BIN" || true
+          echo "-- deployment target --"
+          vtool -show-build "$BIN" | head -8 || otool -l "$BIN" | grep -A3 LC_BUILD_VERSION | head -12
+      - name: Subir binario como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: transcriptor-x86_64-macos11
+          path: .build/x86_64-apple-macosx/debug/Transcriptor
+          if-no-files-found: error
+
+  check:
+    name: Verificación
+    if: always()
+    needs: [test-native, build-x86_64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Estado de los jobs
+        run: |
+          test "${{ needs.test-native.result }}" = success && \
+          test "${{ needs.build-x86_64.result }}" = success && \
+          echo "Todos los jobs correctos" || { echo "Hay fallos"; exit 1; }

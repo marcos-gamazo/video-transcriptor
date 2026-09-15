@@ -284,11 +284,11 @@ For the media and Speech pipeline, include integration tests or manual test proc
 
 This machine has no Xcode, only CommandLineTools. `swift test` against the system `swift` does NOT work (the CommandLineTools test runner finds zero tests).
 
-Use the official Swift toolchain installed via Homebrew:
+Use the official Swift toolchain installed via Homebrew. The Swift Testing of this toolchain requires a minimum deployment of macOS 26 for the test target, so the deployment version is injected via the `SWIFT_TEST_TARGET` environment variable (the product/executable keeps macOS 11):
 
 ```sh
 TOOL=/opt/homebrew/opt/swift/Swift-6.3.xctoolchain/usr/bin
-"$TOOL/swift" test
+SWIFT_TEST_TARGET=arm64-apple-macosx26.0 "$TOOL/swift" test
 ```
 
 This provides a fully working Swift Testing integration (discovery, execution, failure exit codes). Run tests with this toolchain, never with the system `swift`.
