@@ -310,13 +310,15 @@ struct TranscriptionQueueTests {
         await stub.setHandler { _, onState, onProgress, _ in
             onState(.transcribing)
             onProgress(TranscriptionProgress(overall: 0.25, download: 0, transcription: 0.5))
-            for fraction in stride(from: 0.0, through: 1.0, by: 0.1) {
+            // Los pasos superan la ventana de throttling (200 ms) para que
+            // los valores intermedios lleguen al observador.
+            for fraction in stride(from: 0.0, through: 1.0, by: 0.25) {
                 onProgress(TranscriptionProgress(
                     overall: 0.25 + 0.75 * fraction,
                     download: 0,
                     transcription: fraction
                 ))
-                try? await Task.sleep(for: .milliseconds(5))
+                try? await Task.sleep(for: .milliseconds(260))
             }
             onState(.completed)
             return TranscriptionSummary(segmentCount: 2, finalEndTime: nil)
@@ -432,5 +434,41 @@ struct TranscriptionQueueTests {
         let entry = await queue.snapshot.entries.first
         #expect(entry?.state == .failed)
         #expect(entry?.failureMessage == MediaError.unsupportedMedia.userMessage)
+    }
+
+    @Test("Una ráfaga de progreso no inunda al observador (throttling)")
+    func progressBurstDoesNotFloodObserver() async throws {
+        let stub = StubTranscribing()
+        await stub.setHandler { _, onState, onProgress, _ in
+            onState(.transcribing)
+            // Simula un vídeo largo: miles de actualizaciones de progreso inmediatas.
+            for fraction in 0...20_000 {
+                onProgress(TranscriptionProgress(
+                    overall: 0.25 + 0.75 * Double(fraction) / 20_000,
+                    download: 0,
+                    transcription: Double(fraction) / 20_000
+                ))
+            }
+            onState(.completed)
+            return TranscriptionSummary(segmentCount: 20_000, finalEndTime: nil)
+        }
+
+        let recorder = Recorder()
+        let queue = TranscriptionQueue(service: stub, destinationDirectory: try tempDirectory())
+        await queue.setObserver { recorder.add($0) }
+        await queue.enqueue(jobs: makeJobs(1))
+        await queue.start()
+
+        let done = await waitUntil { [queue] in
+            await queue.snapshot.entries.allSatisfy { $0.state == .completed }
+        }
+        #expect(done)
+
+        #expect(recorder.snapshots.count <= 100,
+                "20 000 progresos no deberían generar cientos de snapshots, sino ~\(recorder.snapshots.count).")
+
+        let finalEntry = recorder.snapshots.last?.entries.first
+        #expect(finalEntry?.state == .completed)
+        #expect(finalEntry?.progress.overall == 1)
     }
 }

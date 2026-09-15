@@ -30,6 +30,8 @@ actor TranscriptionQueue {
     private var worker: Task<Void, Never>?
     private var currentWork: (id: UUID, task: Task<Void, Never>)?
     private var observer: (@Sendable (Snapshot) -> Void)?
+    private var lastEmitTime: ContinuousClock.Instant?
+    private var pendingSnapshot: Snapshot?
 
     init(
         service: any Transcribing = TranscriptionService(),
@@ -156,10 +158,11 @@ actor TranscriptionQueue {
 
     private func drain() async {
         defer {
+            flushPending()
             currentWork?.task.cancel()
             currentWork = nil
             worker = nil
-            emit()
+            emit(immediate: true)
         }
         while !Task.isCancelled {
             guard let id = nextPendingID() else { return }
@@ -176,7 +179,7 @@ actor TranscriptionQueue {
         let outputURL = FileDestinationService.uniqueOutputURL(for: job.sourceURL, in: destinationDirectory)
         entries[index].outputURL = outputURL
         entries[index].state = .preparing
-        emit()
+        emit(immediate: true)
 
         let sink = MarkdownTranscriptionSink(
             outputURL: outputURL,
@@ -275,7 +278,7 @@ actor TranscriptionQueue {
         default:
             break
         }
-        emit()
+        emit(immediate: true)
     }
 
     private func applyProgress(id: UUID, progress: TranscriptionProgress) {
@@ -317,8 +320,39 @@ actor TranscriptionQueue {
         entries.firstIndex(where: { $0.id == id })
     }
 
-    private func emit() {
-        observer?(snapshot)
+    /// Throttled emit: terminal state changes and explicit flushes go out immediately;
+    /// progress-only updates are coalesced to at most 5 Hz.
+    private func emit(immediate: Bool = false) {
+        let now = ContinuousClock.now
+        let hasTerminal = entries.contains { $0.state == .completed || $0.state == .failed || $0.state == .cancelled }
+
+        if immediate || hasTerminal || lastEmitTime == nil {
+            let current = snapshot
+            if let pending = pendingSnapshot, pending != current {
+                observer?(pending)
+            }
+            observer?(current)
+            lastEmitTime = now
+            pendingSnapshot = nil
+            return
+        }
+
+        if let last = lastEmitTime, now - last >= .milliseconds(200) {
+            observer?(snapshot)
+            lastEmitTime = now
+            pendingSnapshot = nil
+        } else {
+            pendingSnapshot = snapshot
+        }
+    }
+
+    /// Flush any pending snapshot — called at drain exit to guarantee the final state is delivered.
+    private func flushPending() {
+        if let pending = pendingSnapshot {
+            observer?(pending)
+            lastEmitTime = nil
+            pendingSnapshot = nil
+        }
     }
 
     private static func isCancellation(_ error: Error) -> Bool {
