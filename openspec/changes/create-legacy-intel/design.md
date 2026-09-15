@@ -234,8 +234,10 @@ Streaming processing
 
 ## Open Questions
 
-1. Puente C directo (`libvosk.a` + header) vs CLI embebido con `Process`.
+1. Puente C directo (`libvosk.a` + header) vs CLI embebido con `Process`. → **Resuelto en Spike: puente C directo** (API mínima y estable, sin proceso externo).
 2. Estrategia de distribución de los modelos Vosk (incluir en el DMG o descargar a demanda).
 3. Límite de duración de archivo para evitar tiempos de procesamiento excesivos en hardware antiguo.
-4. Validación del rendimiento real en un MacBook Air 2015 con diferentes modelos (tiny / small / medium de Vosk).
+4. Validación del rendimiento real en un MacBook Air 2015 con diferentes modelos (tiny / small / medium de Vosk). (Spike: factor en vivo 0.01–0.02 en Apple Silicon; pendiente en Intel)
 5. Soporte multilingüe completo o solo español + inglés en la primera release.
+6. **macOS 12 + stdlib Swift**: el toolchain Swift 6.3 enlaza `libswiftCore`/`libswift_Concurrency` del SDK anfitrión (26.0). Para un binario que corra en macOS 12 hay que evaluar `-static-stdlib` o verificar stdlib compatible; si no, subir el min (opción contraria a este design). Validar en Fase 1 (task 1.6).
+7. **Distribución de `libvosk.dylib`**: el dylib oficial tiene install name plano (`libvosk.dylib`). En producción habrá que o bien embeber en el `.app` con `@rpath`, o usar un `libvosk.a` estático (prebuilt estabilizado o build propio x86_64). Decidir en Fase 11/Spike.

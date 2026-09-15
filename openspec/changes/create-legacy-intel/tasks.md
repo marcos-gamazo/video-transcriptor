@@ -15,14 +15,15 @@
 
 > Las tareas marcadas `[x]` indican validación experimental. No significan que la funcionalidad esté implementada en producción.
 
-* [ ] 2.1 Compilar `libvosk.a` estático para `x86_64` / macOS 12.
-* [ ] 2.2 Crear un puente C mínimo (`vosk_bridge.h`/`.c`) exponiendo: carga de modelo, creación de recognizer, `AcceptWaveform`, extracción de resultados y finalización.
-* [ ] 2.3 Transferir a la app un pequeño archivo de audio WAV/PCM para probar el modelo.
-* [ ] 2.4 Probar el flujo end-to-end en un Mac Intel (o x86_64 en CI/otro equipo): WAV 16 kHz → modelo `vosk-model-small-es` → texto con timestamps.
-* [ ] 2.5 Probar la entrada desde un flujo de buffers pequeños (no un archivo completo).
-* [ ] 2.6 Probar cancelación a mitad de proceso y liberación de recursos del modelo.
-* [ ] 2.7 Decidir entre puente C directo o CLI embebido. (Open Question 1 de design.md)
-* [ ] 2.8 Medir velocidad real (factor en vivo) y uso de memoria en hardware objetivo o equivalente.
+* [x] 2.1 Obtener una librería Vosk para macOS. (prebuilt oficial `vosk-osx-0.3.42.zip`: `libvosk.dylib` **universal2** x86_64+arm64, min **macOS 11.0**, deps solo sistema: Accelerate/libc++/libSystem; ver `Spike/VoskSpike/README.md`)
+* [x] 2.2 Crear un puente mínimo con la cabecera `vosk_api.h`. (import directo del header C como módulo `CVosk` via SPM; sin archivos `.c` intermedios)
+* [x] 2.3 Transferir audio de prueba. (WAV PCM 16 kHz mono Int16 generado con `afconvert` desde `Samples/meeting.m4a` y `meeting_long.m4a`; 59.55 s y 357.85 s)
+* [~] 2.4 Probar el flujo end-to-end. (✅ validado en este Mac a través del slice **arm64** de `libvosk.dylib`: WAV 16 kHz → `vosk-model-small-es-0.42` → texto con timestamps por palabra. ❌ pendiente: ejecución del slice **x86_64** en un Mac Intel real o vía Rosetta — además, `swift build --triple x86_64-apple-macosx12.0` en este host arm64 falla por falta de stdlib Swift x86_64 en el toolchain; el build nativo en el Mac Intel lo resuelve)
+* [x] 2.5 Probar la entrada desde un flujo de buffers pequeños. (chunks de 1600 frames; ✅ 59.55 s → 1.13 s, 3 utterances; ✅ 357.85 s → 3.53 s, 18 utterances)
+* [x] 2.6 Probar cancelación a mitad de proceso y liberación de recursos. (`--cancel-after 0.3`: detiene la alimentación, exit 2, `vosk_recognizer_free` libera; sin leaks observados)
+* [x] 2.7 Decidir entre puente C directo o CLI embebido. (**Decisión: puente C directo** vía header `vosk_api.h` + dylib; sin proceso externo, sin overhead, API mínima estable del upstream — ver Open Question 1 de design.md)
+* [x] 2.8 Medir velocidad real y uso de memoria. (memoria pico 208.6 MB (59.6 s) y 265.2 MB (357.9 s), dominada por modelo+decoder; **factor en vivo 0.01–0.02 en Apple Silicon**; pendiente medir en hardware Intel real — tarea 10.1)
+* [x] 2.9 Documentar las limitaciones y decisiones encontradas en el Spike. (ver `Spike/VoskSpike/README.md`)
 
 ---
 
