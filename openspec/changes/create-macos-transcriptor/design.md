@@ -88,46 +88,39 @@ Evitar arquitecturas excesivamente complejas como TCA.
 
 Una estructura inicial será:
 
-```text
-Transcriptor/
-├── App/
-│   ├── TranscriptorApp.swift
-│   └── AppEnvironment.swift
-│
-├── Features/
-│   └── Transcription/
-│       ├── TranscriptionView.swift
-│       ├── TranscriptionViewModel.swift
-│       └── TranscriptionState.swift
-│
-├── Models/
-│   ├── MediaFile.swift
-│   ├── TranscriptionSegment.swift
-│   ├── TranscriptionJob.swift
-│   └── TranscriptionSettings.swift
-│
-├── Services/
-│   ├── Speech/
-│   │   ├── SpeechAnalyzerService.swift
-│   │   └── SpeechAssetManager.swift
-│   │
-│   ├── Media/
-│   │   ├── MediaAnalyzer.swift
-│   │   ├── AudioStreamProvider.swift
-│   │   └── AudioFormatConverter.swift
-│   │
-│   ├── Queue/
-│   │   └── TranscriptionQueue.swift
-│   │
-│   └── Files/
-│       ├── FileValidator.swift
-│       └── FileDestinationService.swift
-│
-├── Exporters/
-│   └── MarkdownWriter.swift
-│
-└── Logging/
-    └── AppLogger.swift
+```mermaid
+flowchart TD
+    Transcriptor["Transcriptor/"]
+    Transcriptor --> App["App/"]
+    App --> TApp["TranscriptorApp.swift"]
+    App --> Env["AppEnvironment.swift"]
+    Transcriptor --> Features
+    Features --> Transcription["Features/Transcription/"]
+    Transcription --> TView["TranscriptionView.swift"]
+    Transcription --> TViewModel["TranscriptionViewModel.swift"]
+    Transcription --> TState["TranscriptionState.swift"]
+    Transcriptor --> Models
+    Models --> MediaFile["MediaFile.swift"]
+    Models --> Segment["TranscriptionSegment.swift"]
+    Models --> Job["TranscriptionJob.swift"]
+    Models --> Settings["TranscriptionSettings.swift"]
+    Transcriptor --> Services
+    Services --> Speech["Services/Speech/"]
+    Speech --> SService["SpeechAnalyzerService.swift"]
+    Speech --> SManager["SpeechAssetManager.swift"]
+    Services --> Media["Services/Media/"]
+    Media --> MAnalyzer["MediaAnalyzer.swift"]
+    Media --> Stream["AudioStreamProvider.swift"]
+    Media --> Converter["AudioFormatConverter.swift"]
+    Services --> Queue["Services/Queue/"]
+    Queue --> TQueue["TranscriptionQueue.swift"]
+    Services --> Files["Services/Files/"]
+    Files --> Validator["FileValidator.swift"]
+    Files --> Destination["FileDestinationService.swift"]
+    Transcriptor --> Exporters
+    Exporters --> Writer["Exporters/MarkdownWriter.swift"]
+    Transcriptor --> Logging
+    Logging --> Log["Logging/AppLogger.swift"]
 ```
 
 La estructura es orientativa. Las responsabilidades podrán reorganizarse si la implementación real de las APIs de Apple lo requiere, pero debe evitarse introducir capas o abstracciones que no aporten una necesidad concreta.
@@ -150,20 +143,12 @@ Los resultados finales deberán conservar información temporal suficiente para 
 
 El flujo validado por el Spike es:
 
-```text
-AudioStreamProvider
-        │
-        ▼
-AsyncSequence<AnalyzerInput>
-        │
-        ▼
-SpeechAnalyzer.analyzeSequence(...)
-        │
-        ▼
-SpeechTranscriber.Result
-        │
-        ▼
-TranscriptionSegment
+```mermaid
+flowchart TD
+    AudioStreamProvider --> Input["AsyncSequence<AnalyzerInput>"]
+    Input --> Analyze["SpeechAnalyzer.analyzeSequence(...)"]
+    Analyze --> Result["SpeechTranscriber.Result"]
+    Result --> Segment[TranscriptionSegment]
 ```
 
 Al finalizar la entrada se utilizará el último tiempo de muestra proporcionado por `analyzeSequence`:
@@ -213,24 +198,20 @@ El Spike demostró que `AssetInventory.status(forModules:)` no debe utilizarse c
 
 En particular:
 
-```text
-es_ES preinstalado
-    → presente en installedLocales
-    → AssetInventory.status == .supported
-
-fr_FR / zh_CN instalados durante Spike
-    → presentes en installedLocales
-    → AssetInventory.status == .installed
+```mermaid
+flowchart TD
+    ES["es_ES preinstalado"] --> InstLocales["presente en installedLocales"]
+    ES --> Status["AssetInventory.status == .supported"]
+    FR["fr_FR / zh_CN instalados durante Spike"] --> InstLocales2["presentes en installedLocales"]
+    FR --> Status2["AssetInventory.status == .installed"]
 ```
 
 Por tanto:
 
-```text
-installedLocales
-    → fuente de verdad para "instalado"
-
-AssetInventory.status
-    → información auxiliar sobre disponibilidad/instalación
+```mermaid
+flowchart TD
+    Installed["installedLocales"] --> Source["fuente de verdad para 'instalado'"]
+    Inventory["AssetInventory.status"] --> Aux["información auxiliar sobre disponibilidad/instalación"]
 ```
 
 No se deberá rechazar un idioma simplemente porque `AssetInventory.status` devuelva `.supported` si el locale aparece en `installedLocales`.
@@ -239,14 +220,11 @@ No se deberá rechazar un idioma simplemente porque `AssetInventory.status` devu
 
 Cuando el locale no esté instalado pero sea soportado, utilizar:
 
-```text
-AssetInventory.reserve(locale:)
-        ↓
-assetInstallationRequest(supporting:)
-        ↓
-downloadAndInstall()
-        ↓
-release(reservedLocale:)
+```mermaid
+flowchart TD
+    Reserve["AssetInventory.reserve(locale:)"] --> Request["assetInstallationRequest(supporting:)"]
+    Request --> Install["downloadAndInstall()"]
+    Install --> Release["release(reservedLocale:)"]
 ```
 
 El progreso se expondrá mediante `AssetInstallationRequest.progress`.
@@ -275,14 +253,11 @@ La aplicación no deberá generar un archivo WAV temporal completo como paso nor
 
 El flujo preferido será:
 
-```text
-Media source
-    ↓
-AudioStreamProvider
-    ↓
-audio buffers
-    ↓
-SpeechAnalyzer
+```mermaid
+flowchart TD
+    Source["Media source"] --> Stream[AudioStreamProvider]
+    Stream --> Buffers[audio buffers]
+    Buffers --> Analyzer[SpeechAnalyzer]
 ```
 
 ---
@@ -295,23 +270,13 @@ Para vídeo se utilizará AVFoundation.
 
 Flujo conceptual:
 
-```text
-AVURLAsset
-    │
-    ▼
-Audio track
-    │
-    ▼
-AVAssetReader
-    │
-    ▼
-Audio samples
-    │
-    ▼
-Format conversion if needed
-    │
-    ▼
-SpeechAnalyzer
+```mermaid
+flowchart TD
+    URL["AVURLAsset"] --> Track["Audio track"]
+    Track --> Reader[AVAssetReader]
+    Reader --> Samples[Audio samples]
+    Samples --> Conversion["Format conversion if needed"]
+    Conversion --> Analyzer[SpeechAnalyzer]
 ```
 
 Para audio se utilizará el mismo concepto de streaming, evitando crear una copia completa del archivo en memoria.
@@ -328,12 +293,10 @@ Cuando sea posible, la conversión de `CMSampleBuffer` a `AVAudioPCMBuffer` debe
 
 El Spike validó la siguiente estrategia:
 
-```text
-CMSampleBuffer
-    ↓
-CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(...)
-    ↓
-AVAudioPCMBuffer(bufferListNoCopy:)
+```mermaid
+flowchart TD
+    A["CMSampleBuffer"] --> B["CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(...)"]
+    B --> C["AVAudioPCMBuffer(bufferListNoCopy:)"]
 ```
 
 El `CMBlockBuffer` asociado deberá mantenerse retenido mientras el `AVAudioPCMBuffer` permanezca válido.
@@ -350,10 +313,10 @@ El pipeline de entrada debe impedir tanto la pérdida de audio como el crecimien
 
 El Spike demostró:
 
-```text
-bufferingNewest(4)
-    → pérdida de buffers
-    → transcripción incompleta
+```mermaid
+flowchart TD
+    A["bufferingNewest(4)"] --> B["pérdida de buffers"]
+    B --> C["transcripción incompleta"]
 ```
 
 Por tanto, **no se utilizará `bufferingNewest` para alimentar SpeechAnalyzer**.
@@ -370,14 +333,10 @@ La arquitectura de producción deberá implementar **backpressure explícito o p
 
 Conceptualmente:
 
-```text
-AVAssetReader
-      │
-      ▼
-bounded queue / controlled producer
-      │
-      ▼
-SpeechAnalyzer
+```mermaid
+flowchart TD
+    Reader[AVAssetReader] --> Queue["bounded queue / controlled producer"]
+    Queue --> Analyzer[SpeechAnalyzer]
 ```
 
 El productor deberá esperar o reducir su ritmo cuando el consumidor no pueda aceptar más datos.
@@ -386,10 +345,9 @@ El mecanismo concreto podrá ser un `AsyncStream` con coordinación adicional, u
 
 Requisito fundamental:
 
-```text
-No data loss
-+
-Bounded memory
+```mermaid
+flowchart LR
+    A["No data loss"] --- B["Bounded memory"]
 ```
 
 No se debe resolver el problema de presión de memoria descartando buffers.
@@ -400,22 +358,15 @@ No se debe resolver el problema de presión de memoria descartando buffers.
 
 El pipeline deberá seguir estrictamente un modelo streaming:
 
-```text
-File
- ↓
-small audio buffers
- ↓
-bounded pipeline
- ↓
-SpeechAnalyzer
- ↓
-final result
- ↓
-paragraph aggregator
- ↓
-MarkdownWriter
- ↓
-discard processed data
+```mermaid
+flowchart TD
+    File["File"] --> SmallBuffers["small audio buffers"]
+    SmallBuffers --> BoundedPipeline["bounded pipeline"]
+    BoundedPipeline --> SpeechAnalyzer
+    SpeechAnalyzer --> FinalResult["final result"]
+    FinalResult --> ParagraphAggregator
+    ParagraphAggregator --> MarkdownWriter
+    MarkdownWriter --> Discard["discard processed data"]
 ```
 
 No se deberá:
@@ -465,14 +416,11 @@ para todo el archivo.
 
 Los segmentos deberán procesarse incrementalmente:
 
-```text
-SpeechTranscriber
-      ↓
-TranscriptionSegment
-      ↓
-ParagraphAggregator
-      ↓
-MarkdownWriter
+```mermaid
+flowchart TD
+    SpeechTranscriber --> TranscriptionSegment
+    TranscriptionSegment --> ParagraphAggregator
+    ParagraphAggregator --> MarkdownWriter
 ```
 
 Una vez escrito un bloque y liberadas sus referencias, los datos asociados deberán poder salir de memoria.
@@ -487,12 +435,12 @@ Se implementará un `ParagraphAggregator` que reciba segmentos/resultados increm
 
 El timestamp del bloque será el `start` del primer segmento incluido:
 
-```text
-segment 1 ─┐
-segment 2  ├── paragraph
-segment 3 ─┘
-              ↓
-timestamp = start(segment 1)
+```mermaid
+flowchart TD
+    S1["segment 1"] --> Paragraph["paragraph"]
+    S2["segment 2"] --> Paragraph
+    S3["segment 3"] --> Paragraph
+    Paragraph --> Timestamp["timestamp = start(segment 1)"]
 ```
 
 No utilizar una regla fija del tipo:
@@ -556,12 +504,13 @@ La escritura deberá ser incremental para evitar acumular el documento completo 
 
 La primera versión utilizará una cola estrictamente secuencial:
 
-```text
-Job 1 → processing → completed
-                         ↓
-Job 2 → processing → completed
-                         ↓
-Job 3 → processing → completed
+```mermaid
+flowchart LR
+    J1["Job 1"] --> P1[processing] --> C1[completed]
+    C1 --> J2["Job 2"]
+    J2 --> P2[processing] --> C2[completed]
+    C2 --> J3["Job 3"]
+    J3 --> P3[processing] --> C3[completed]
 ```
 
 Solo habrá un job de transcripción activo simultáneamente.
@@ -582,16 +531,12 @@ Los trabajos pendientes podrán permanecer representados mediante metadatos lige
 
 La cancelación deberá atravesar todas las capas relevantes:
 
-```text
-UI
- ↓
-TranscriptionJob
- ↓
-TranscriptionQueue
- ↓
-AudioStreamProvider
- ↓
-SpeechAnalyzerService
+```mermaid
+flowchart TD
+    UI --> TranscriptionJob
+    TranscriptionJob --> TranscriptionQueue
+    TranscriptionQueue --> AudioStreamProvider
+    AudioStreamProvider --> SpeechAnalyzerService
 ```
 
 El lector deberá detenerse cuando el job sea cancelado.
@@ -600,16 +545,12 @@ El analizador deberá finalizar/cancelar su procesamiento de forma ordenada.
 
 El Spike validó que:
 
-```text
-cancel
-    ↓
-reader stops
-    ↓
-analyzeSequence returns
-    ↓
-cancelAndFinishNow
-    ↓
-cancellation propagated
+```mermaid
+flowchart TD
+    Cancel["cancel"] --> ReaderStops["reader stops"]
+    ReaderStops --> AnalyzeReturns["analyzeSequence returns"]
+    AnalyzeReturns --> CancelFinish["cancelAndFinishNow"]
+    CancelFinish --> Propagated["cancellation propagated"]
 ```
 
 La implementación de producción deberá garantizar la liberación de recursos mediante cancelación estructurada y `defer` cuando sea apropiado.
@@ -620,20 +561,12 @@ La implementación de producción deberá garantizar la liberación de recursos 
 
 La pantalla principal deberá seguir un flujo sencillo:
 
-```text
-Arrastrar archivos
-       │
-       ▼
-Seleccionar idioma
-       │
-       ▼
-Timestamps ON/OFF
-       │
-       ▼
-Seleccionar carpeta
-       │
-       ▼
-Transcribir
+```mermaid
+flowchart TD
+    A["Arrastrar archivos"] --> B["Seleccionar idioma"]
+    B --> C["Timestamps ON/OFF"]
+    C --> D["Seleccionar carpeta"]
+    D --> E["Transcribir"]
 ```
 
 Debe permitir:
@@ -660,13 +593,9 @@ Separar errores internos de mensajes de usuario.
 
 Ejemplo:
 
-```text
-Internal:
-SpeechAnalyzerError.assetUnavailable
-
-User:
-"No se puede transcribir en Español porque el recurso
-de idioma todavía no está instalado."
+```mermaid
+flowchart TD
+    Internal["Internal: SpeechAnalyzerError.assetUnavailable"] --> User["User: 'No se puede transcribir en Español porque el recurso de idioma todavía no está instalado.'"]
 ```
 
 Los detalles técnicos deberán registrarse mediante `AppLogger`.
@@ -866,26 +795,17 @@ El desarrollo de producción deberá partir de los resultados validados por dich
 
 Orden recomendado de implementación:
 
-```text
-MediaAnalyzer
-      ↓
-AudioStreamProvider
-      ↓
-bounded backpressure
-      ↓
-SpeechAnalyzerService
-      ↓
-TranscriptionSegment
-      ↓
-ParagraphAggregator
-      ↓
-MarkdownWriter
-      ↓
-TranscriptionQueue
-      ↓
-ViewModel
-      ↓
-SwiftUI
+```mermaid
+flowchart TD
+    MediaAnalyzer --> AudioStreamProvider
+    AudioStreamProvider --> Backpressure["bounded backpressure"]
+    Backpressure --> SpeechAnalyzerService
+    SpeechAnalyzerService --> TranscriptionSegment
+    TranscriptionSegment --> ParagraphAggregator
+    ParagraphAggregator --> MarkdownWriter
+    MarkdownWriter --> TranscriptionQueue
+    TranscriptionQueue --> ViewModel
+    ViewModel --> SwiftUI
 ```
 
 La UI completa no debe ser el primer objetivo de implementación.

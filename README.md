@@ -70,18 +70,17 @@ Output: `build/Transcriptor-1.0.0.dmg`
 
 ## Architecture
 
-```
-TranscriptionView → TranscriptionViewModel → TranscriptionQueue
-                                                      ↓
-                                              TranscriptionService
-                                                      ↓
-                                          MediaAnalyzer ← AudioStreamProvider
-                                                      ↓
-                                            SpeechAnalyzerService
-                                                      ↓
-                                           ParagraphAggregator
-                                                      ↓
-                                              MarkdownWriter → disk
+```mermaid
+flowchart TD
+    TranscriptionView --> TranscriptionViewModel
+    TranscriptionViewModel --> TranscriptionQueue
+    TranscriptionQueue --> TranscriptionService
+    TranscriptionService --> MediaAnalyzer
+    TranscriptionService --> SpeechAnalyzerService
+    SpeechAnalyzerService --> AudioStreamProvider
+    TranscriptionQueue --> ParagraphAggregator
+    ParagraphAggregator --> MarkdownWriter
+    MarkdownWriter --> disk[(disk)]
 ```
 
 All media processing is streaming — no full file or audio track is ever loaded into memory.

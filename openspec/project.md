@@ -146,20 +146,14 @@ Do not:
 
 Prefer:
 
-```text
-Disk
-  ↓
-small audio buffers
-  ↓
-SpeechAnalyzer
-  ↓
-transcription results
-  ↓
-paragraph aggregation
-  ↓
-MarkdownWriter
-  ↓
-Disk
+```mermaid
+flowchart TD
+    Disk1[Disk] --> SmallAudioBuffers[small audio buffers]
+    SmallAudioBuffers --> SpeechAnalyzer
+    SpeechAnalyzer --> TranscriptionResults[transcription results]
+    TranscriptionResults --> ParagraphAggregation[paragraph aggregation]
+    ParagraphAggregation --> MarkdownWriter
+    MarkdownWriter --> Disk2[Disk]
 ```
 
 The memory footprint should remain reasonably stable as media duration increases.
@@ -186,14 +180,11 @@ Results should be consumed incrementally.
 
 The pipeline should be capable of:
 
-```text
-SpeechTranscriber
-    ↓
-TranscriptionSegment
-    ↓
-ParagraphAggregator
-    ↓
-MarkdownWriter
+```mermaid
+flowchart TD
+    SpeechTranscriber --> TranscriptionSegment
+    TranscriptionSegment --> ParagraphAggregator
+    ParagraphAggregator --> MarkdownWriter
 ```
 
 Once processed data is no longer required, it should be released.
@@ -258,10 +249,11 @@ The first version must process jobs sequentially.
 
 Example:
 
-```text
-Job 1 → processing → completed
-Job 2 → pending
-Job 3 → pending
+```mermaid
+flowchart LR
+    Job1[Job 1] --> Processing1[processing] --> Completed1[completed]
+    Job2[Job 2] --> Pending2[pending]
+    Job3[Job 3] --> Pending3[pending]
 ```
 
 Do not parallelize transcription jobs in the initial version.

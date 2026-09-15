@@ -113,22 +113,15 @@ Prefer streaming and incremental processing.
 
 The intended pipeline is:
 
-```text
-Media
-  ↓
-AVFoundation
-  ↓
-small audio buffers
-  ↓
-SpeechAnalyzer
-  ↓
-transcription results
-  ↓
-paragraph aggregation
-  ↓
-MarkdownWriter
-  ↓
-disk
+```mermaid
+flowchart TD
+    Media --> AVFoundation
+    AVFoundation --> SmallAudioBuffers[small audio buffers]
+    SmallAudioBuffers --> SpeechAnalyzer
+    SpeechAnalyzer --> TranscriptionResults[transcription results]
+    TranscriptionResults --> ParagraphAggregation[paragraph aggregation]
+    ParagraphAggregation --> MarkdownWriter
+    MarkdownWriter --> Disk[disk]
 ```
 
 ## Concurrency
@@ -200,14 +193,9 @@ Avoid constructing the complete Markdown document in memory before writing it.
 
 Prefer a lightweight architecture:
 
-```text
-Views
-  ↓
-ViewModels
-  ↓
-Services
-  ↓
-Apple Frameworks
+```mermaid
+flowchart LR
+    Views --> ViewModels --> Services --> AppleFrameworks[Apple Frameworks]
 ```
 
 Keep responsibilities separated.
