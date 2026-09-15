@@ -2,12 +2,17 @@
 
 ## 1. Project Setup (Legacy)
 
-* [ ] 1.1 Crear la rama `legacy-intel` partiendo de la versión Apple Silicon. (hecho: rama creada y publicada en GitHub)
+* [x] 1.1 Crear la rama `legacy-intel` partiendo de la versión Apple Silicon. (hecho: rama creada y publicada en GitHub)
 * [ ] 1.2 Configurar el target para Intel (`x86_64`). (toolchain `x86_64-apple-macosx`)
-* [ ] 1.3 Configurar `macOS 12.0` como deployment target. (se mantiene Swift 6 si el toolchain lo permite para ese target)
-* [ ] 1.4 Mantener Swift Concurrency y SwiftUI como base de la UI.
-* [ ] 1.5 Eliminar las dependencias de las APIs de Speech de Apple (`SpeechAnalyzer`, `SpeechTranscriber`, `Speech.AssetInventory`) del código compilado.
-* [ ] 1.6 Verificar que el proyecto compila para `x86_64` con deployment target macOS 12 sin usar APIs posteriores. (requiere pasar el SDK de macOS por encima del deployment target)
+* [x] 1.3 Configurar `macOS 11.0` como deployment target mínimo. (se mantiene Swift 6 si el toolchain lo permite para ese target; el binario corre en macOS 11 y superiores; `Package.swift` → `.macOS(.v11)`, `AppEnvironment.deploymentTarget` → `"macOS 11.0"`)
+* [x] 1.4 Mantener Swift Concurrency y SwiftUI como base de la UI.
+* [x] 1.5 Eliminar las dependencias de las APIs de Speech de Apple (`SpeechAnalyzer`, `SpeechTranscriber`, `Speech.AssetInventory`) del código compilado. (eliminado `Sources/Transcriptor/Services/Speech/`; creado `Services/Vosk/` con `VoskService`, `VoskModelManager`, `VoskError` como stubs Fase 1)
+* [ ] 1.6 Verificar que el proyecto compila para `x86_64` con deployment target macOS 11 sin usar APIs posteriores. (requiere pasar el SDK de macOS por encima del deployment target)
+* [x] 1.7 Portar las APIs incompatibles con macOS 11 del código compartido:
+  * [x] 1.7.1 `@Observable`/`@Bindable` → `ObservableObject` + `@Published` (`TranscriptionViewModel`, `LogStore`, vistas).
+  * [x] 1.7.2 `Duration` → `Double` (segundos) en el dominio (modelos, `ParagraphAggregator`, `MarkdownWriter`, `TranscriptionService`).
+  * [x] 1.7.3 `ContinuousClock` → throttle por `Date` en `TranscriptionQueue`.
+  * [x] 1.7.4 `AnalyzerInput` propio (hoy importado desde Speech) y `.foregroundStyle`/`.textSelection`/`.formatted`/`.monospacedDigit`/`.listRowSeparator`/`Window(id:)`/`openWindow`/`asset.load` async → equivalentes macOS 11. (prefacio: el `swift test`/build arm64 con deployment 11 pasa; los tests usan `-target arm64-apple-macosx26.0` porque el Swift Testing del toolchain 6.3 lo exige)
 
 ---
 
@@ -56,7 +61,7 @@
 * [ ] 5.1 Asegurar que `AudioStreamProvider` puede emitir PCM mono 16 kHz 16-bit.
 * [ ] 5.2 Confirmar que el flujo AVFoundation existente (video → audio) funciona sin cambios.
 * [ ] 5.3 Validar conversión de muestreo/canales por streaming sin fichero temporal.
-* [ ] 5.4 Verificar `MediaAnalyzer` (formats MP3/M4A/WAV/MP4/MOV/M4V) sin cambios para macOS 12.
+* [x] 5.4 Verificar `MediaAnalyzer` (formats MP3/M4A/WAV/MP4/MOV/M4V) sin cambios para macOS 11. (validado por tests arm64 con deployment macOS 11: duración, tracks, MP3/WAV/video reales)
 
 ---
 

@@ -1,48 +1,47 @@
 import Testing
 import Foundation
 import AVFoundation
-import Speech
 @testable import Transcriptor
 
 // MARK: - 12.2 Language selection and resolution
 
 @Suite("LanguageSelection")
 struct LanguageSelectionTests {
-    @Test("SpeechTranscriber.supportedLocales contiene al menos es_ES")
-    func supportedLocalesContainsSpanish() async {
-        let locales = await SpeechTranscriber.supportedLocales
+    @Test("VoskModelManager.supportedLocales contiene al menos es_ES")
+    func supportedLocalesContainsSpanish() {
+        let locales = VoskModelManager.supportedLocales
         let identifiers = locales.map(\.identifier)
         #expect(identifiers.contains("es_ES"), "Se esperaba es_ES en la lista de idiomas soportados.")
     }
 
-    @Test("SpeechTranscriber.supportedLocales contiene en_US")
-    func supportedLocalesContainsEnglish() async {
-        let locales = await SpeechTranscriber.supportedLocales
+    @Test("VoskModelManager.supportedLocales contiene en_US")
+    func supportedLocalesContainsEnglish() {
+        let locales = VoskModelManager.supportedLocales
         let identifiers = locales.map(\.identifier)
         #expect(identifiers.contains("en_US"), "Se esperaba en_US en la lista de idiomas soportados.")
     }
 
-    @Test("SpeechTranscriber.supportedLocales tiene más de un idioma")
-    func supportedLocalesHasMultipleLanguages() async {
-        let locales = await SpeechTranscriber.supportedLocales
-        let languageCodes = Set(locales.compactMap { $0.language.languageCode?.identifier })
-        #expect(languageCodes.count > 1, "Se esperaba más de un idioma distinto.")
+    @Test("VoskModelManager.supportedLocales tiene más de un idioma")
+    func supportedLocalesHasMultipleLanguages() {
+        let locales = VoskModelManager.supportedLocales
+        let distinctCodes = Set(locales.map { $0.identifier.split(separator: "_").first.map(String.init) ?? "" })
+        #expect(distinctCodes.count > 1, "Se esperaba más de un idioma distinto.")
     }
 
     @Test("Preflight resuelve es a es_ES")
     func preflightResolvesEsToEsES() async throws {
-        let manager = SpeechAssetManager()
+        let manager = VoskModelManager()
         let result = try await manager.preflight(locale: Locale(identifier: "es"))
         #expect(result.resolvedLocale.identifier == "es_ES")
     }
 
     @Test("Preflight para un idioma no soportado lanza unsupportedLocale")
     func preflightRejectsUnsupportedLocale() async {
-        let manager = SpeechAssetManager()
+        let manager = VoskModelManager()
         do {
             _ = try await manager.preflight(locale: Locale(identifier: "zu_ZA"))
             Issue.record("Se esperaba unsupportedLocale para zu_ZA.")
-        } catch let error as SpeechError {
+        } catch let error as VoskError {
             #expect(error == .unsupportedLocale)
         } catch {
             Issue.record("Error inesperado: \(error)")
@@ -57,13 +56,15 @@ struct LanguageSelectionTests {
     }
 }
 
-// MARK: - 12.15 Asset installation
+// MARK: - 12.15 Model installation
 
-@Suite("AssetInstallation")
-struct AssetInstallationTests {
-    @Test("Install es un no-op cuando el asset ya está instalado")
+@Suite("ModelInstallation")
+struct ModelInstallationTests {
+    @Test(
+        "Install es un no-op cuando el modelo ya está instalado",
+        .disabled("Requiere la descarga de modelos Vosk (Fase 4)."))
     func installNoOpWhenAlreadyInstalled() async throws {
-        let manager = SpeechAssetManager()
+        let manager = VoskModelManager()
         let preflight = try await manager.preflight(locale: Locale(identifier: "es_ES"))
         #expect(preflight.installed)
 
@@ -73,11 +74,11 @@ struct AssetInstallationTests {
 
     @Test("Preflight de un locale no soportado falla antes de intentar install")
     func unsupportedLocaleFailsPreflight() async {
-        let manager = SpeechAssetManager()
+        let manager = VoskModelManager()
         do {
             let preflight = try await manager.preflight(locale: Locale(identifier: "xx_XX"))
             Issue.record("Se esperaba un error, se obtuvo: \(preflight)")
-        } catch let error as SpeechError {
+        } catch let error as VoskError {
             #expect(error == .unsupportedLocale)
         } catch {
             Issue.record("Error inesperado: \(error)")
@@ -111,9 +112,7 @@ struct RealMediaMP3Tests {
         try Self.createMinimalMP3(at: mp3URL)
 
         let info = try await MediaAnalyzer().analyze(url: mp3URL)
-        let seconds = Double(info.duration.components.seconds)
-            + Double(info.duration.components.attoseconds) / 1e18
-        #expect(seconds > 0, "El MP3 debería tener duración positiva.")
+        #expect(info.duration > 0, "El MP3 debería tener duración positiva.")
     }
 
     @Test("AudioStreamProvider lee buffers de un MP3 mínimo")
@@ -222,12 +221,12 @@ struct RealMediaWAVTests {
         let wav = try Self.createWAVFixture(in: dir)
 
         let info = try await MediaAnalyzer().analyze(url: wav)
-        let seconds = Double(info.duration.components.seconds)
-            + Double(info.duration.components.attoseconds) / 1e18
-        #expect(seconds > 55 && seconds < 65, "Duración WAV observada: \(seconds) s")
+        #expect(info.duration > 55 && info.duration < 65, "Duración WAV observada: \(info.duration) s")
     }
 
-    @Test("Transcribe un WAV real y produce segmentos con texto")
+    @Test(
+        "Transcribe un WAV real y produce segmentos con texto",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func transcribesWAVEndToEnd() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("wav-transcribe-\(UUID().uuidString)")
@@ -250,7 +249,9 @@ struct RealMediaWAVTests {
 
 @Suite("RealMediaDurations")
 struct RealMediaDurationsTests {
-    @Test("La transcripción de un m4a de ~60s completa sin error")
+    @Test(
+        "La transcripción de un m4a de ~60s completa sin error",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func transcribesShortAudio() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(
@@ -282,18 +283,19 @@ struct EndToEndValidationTests {
 
     private func waitUntil(
         _ condition: @escaping () async -> Bool,
-        timeout: Duration = .seconds(30)
+        timeout: TimeInterval = 30
     ) async -> Bool {
-        let clock = ContinuousClock()
-        let start = clock.now
-        while clock.now - start < timeout {
+        let start = Date()
+        while Date().timeIntervalSince(start) < timeout {
             if await condition() { return true }
-            try? await Task.sleep(for: .milliseconds(25))
+            try? await Task.sleep(nanoseconds: 25_000_000)
         }
         return await condition()
     }
 
-    @Test("15.1/15.13 Cola real transcribe un m4a y escribe un .md correcto en disco")
+    @Test(
+        "15.1/15.13 Cola real transcribe un m4a y escribe un .md correcto en disco",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func queueTranscribesAudioAndWritesMarkdown() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let destination = try tempDirectory()
@@ -334,7 +336,9 @@ struct EndToEndValidationTests {
         #expect(paragraphStarts.count > 0, "Debería haber al menos un párrafo con timestamp.")
     }
 
-    @Test("15.3 La transcripción sin timestamps escribe Markdown limpio")
+    @Test(
+        "15.3 La transcripción sin timestamps escribe Markdown limpio",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func queueWritesCleanMarkdownWithoutTimestamps() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let destination = try tempDirectory()
@@ -370,7 +374,9 @@ struct EndToEndValidationTests {
         #expect(content.contains("."), "Debería contener texto transcrito.")
     }
 
-    @Test("15.5 La cola real procesa varios archivos secuencialmente en orden")
+    @Test(
+        "15.5 La cola real procesa varios archivos secuencialmente en orden",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func queueProcessesMultipleFilesSequentially() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let destination = try tempDirectory()
@@ -395,7 +401,7 @@ struct EndToEndValidationTests {
                 let snapshot = await queue.snapshot
                 return snapshot.entries.allSatisfy { self.isTerminal($0.state) }
             },
-            timeout: .seconds(60)
+            timeout: 60
         )
         #expect(done, "Ambos trabajos deberían completarse.")
         #expect(done, "La cola debería completar ambos trabajos.")

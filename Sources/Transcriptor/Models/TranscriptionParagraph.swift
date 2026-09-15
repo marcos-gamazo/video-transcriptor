@@ -1,6 +1,6 @@
 import Foundation
 
 struct TranscriptionParagraph: Equatable, Sendable {
-    let start: Duration
+    let start: Double
     let text: String
 }

@@ -106,15 +106,14 @@ struct TranscriptionQueueTests {
         state == .completed || state == .cancelled || state == .failed
     }
 
-    private func waitUntil(
+private func waitUntil(
         _ condition: @escaping () async -> Bool,
-        timeout: Duration = .seconds(5)
+        timeout: TimeInterval = 5
     ) async -> Bool {
-        let clock = ContinuousClock()
-        let start = clock.now
-        while clock.now - start < timeout {
+        let start = Date()
+        while Date().timeIntervalSince(start) < timeout {
             if await condition() { return true }
-            try? await Task.sleep(for: .milliseconds(10))
+            try? await Task.sleep(nanoseconds: 10_000_000)
         }
         return await condition()
     }
@@ -125,8 +124,8 @@ struct TranscriptionQueueTests {
         let seen = UUIDList()
         await stub.setHandler { job, _, _, _ in
             seen.append(job.id)
-            try? await Task.sleep(for: .milliseconds(20))
-            return TranscriptionSummary(segmentCount: 1, finalEndTime: .seconds(1))
+            try? await Task.sleep(nanoseconds: 20_000_000)
+            return TranscriptionSummary(segmentCount: 1, finalEndTime: 1.0)
         }
 
         let queue = TranscriptionQueue(service: stub, destinationDirectory: try tempDirectory())
@@ -181,7 +180,7 @@ struct TranscriptionQueueTests {
         let firstID = jobs[0].id
         await stub.setHandler { job, _, _, _ in
             if job.id == firstID {
-                try await Task.sleep(for: .seconds(5))
+                try await Task.sleep(nanoseconds: 5_000_000_000)
             }
             return TranscriptionSummary(segmentCount: 1, finalEndTime: nil)
         }
@@ -212,7 +211,7 @@ struct TranscriptionQueueTests {
     func cancelAllCancelsPendingJobs() async throws {
         let stub = StubTranscribing()
         await stub.setHandler { _, _, _, _ in
-            try await Task.sleep(for: .seconds(5))
+            try await Task.sleep(nanoseconds: 5_000_000_000)
             return TranscriptionSummary(segmentCount: 0, finalEndTime: nil)
         }
 
@@ -244,7 +243,7 @@ struct TranscriptionQueueTests {
         await stub.setHandler { _, _, _, _ in
             let current = box.next()
             if current == 0 {
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(nanoseconds: 200_000_000)
             }
             return TranscriptionSummary(segmentCount: 1, finalEndTime: nil)
         }
@@ -275,7 +274,7 @@ struct TranscriptionQueueTests {
         await stub.setHandler { _, _, _, _ in
             let current = box.next()
             if current == 0 {
-                try? await Task.sleep(for: .milliseconds(300))
+                try? await Task.sleep(nanoseconds: 300_000_000)
             }
             return TranscriptionSummary(segmentCount: 1, finalEndTime: nil)
         }
@@ -318,7 +317,7 @@ struct TranscriptionQueueTests {
                     download: 0,
                     transcription: fraction
                 ))
-                try? await Task.sleep(for: .milliseconds(260))
+                try? await Task.sleep(nanoseconds: 260_000_000)
             }
             onState(.completed)
             return TranscriptionSummary(segmentCount: 2, finalEndTime: nil)
@@ -359,7 +358,7 @@ struct TranscriptionQueueTests {
         let queue = TranscriptionQueue(service: stub, destinationDirectory: try tempDirectory())
         await queue.enqueue(jobs: makeJobs(2))
 
-        try? await Task.sleep(for: .milliseconds(200))
+        try? await Task.sleep(nanoseconds: 200_000_000)
         #expect(await stub.invocationCount == 0,
                 "Encolar no debería iniciar la transcripción por sí mismo.")
 
@@ -382,7 +381,7 @@ struct TranscriptionQueueTests {
         let firstID = jobs[0].id
         await stub.setHandler { job, _, _, _ in
             if job.id == firstID {
-                try await Task.sleep(for: .seconds(5))
+                try await Task.sleep(nanoseconds: 5_000_000_000)
             }
             return TranscriptionSummary(segmentCount: 1, finalEndTime: nil)
         }

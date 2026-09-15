@@ -1,16 +1,16 @@
 import Foundation
 
 struct ParagraphAggregator {
-    var pauseThreshold: Duration
-    var shortGapThreshold: Duration
+    var pauseThreshold: Double
+    var shortGapThreshold: Double
 
-    private(set) var currentStart: Duration?
-    private(set) var currentEnd: Duration?
+    private(set) var currentStart: Double?
+    private(set) var currentEnd: Double?
     private(set) var currentText: String = ""
 
     init(
-        pauseThreshold: Duration = .seconds(2),
-        shortGapThreshold: Duration = .milliseconds(750)
+        pauseThreshold: Double = 2,
+        shortGapThreshold: Double = 0.75
     ) {
         self.pauseThreshold = pauseThreshold
         self.shortGapThreshold = shortGapThreshold
@@ -29,7 +29,7 @@ struct ParagraphAggregator {
             return nil
         }
 
-        let pause = max(.zero, segment.start - (currentEnd ?? paragraphStart))
+        let pause = max(0, (segment.start - (currentEnd ?? paragraphStart)))
         let currentEndsSentence = Self.endsSentence(currentText)
 
         if pause >= pauseThreshold || (currentEndsSentence && pause >= shortGapThreshold) {

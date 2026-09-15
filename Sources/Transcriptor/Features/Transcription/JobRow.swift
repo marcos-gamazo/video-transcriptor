@@ -10,7 +10,7 @@ struct JobRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Image(systemName: iconName)
-                    .foregroundStyle(tint)
+                    .foregroundColor(tint)
                     .frame(width: 20)
                     .accessibilityLabel(accessibilityStateDescription)
 
@@ -21,7 +21,7 @@ struct JobRow: View {
                         .truncationMode(.middle)
                     statusText
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(.secondary)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(entry.job.sourceURL.lastPathComponent). \(accessibilityStateDescription)")
@@ -42,14 +42,14 @@ struct JobRow: View {
             if entry.state == .failed, let failureMessage = entry.failureMessage {
                 Text(failureMessage)
                     .font(.callout)
-                    .foregroundStyle(.red)
+                    .foregroundColor(.red)
                     .accessibilityLabel("Error. \(failureMessage)")
             }
 
             if entry.state == .completed, let output = entry.outputURL {
                 Text(output.path)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .accessibilityLabel("Archivo generado: \(output.path)")
@@ -86,7 +86,7 @@ struct JobRow: View {
     private var trailingControls: some View {
         switch entry.state {
         case .pending:
-            Button(role: .destructive, action: onRemove) {
+            Button(action: onRemove) {
                 Label("Eliminar", systemImage: "trash")
             }
             .help("Quitar este archivo de la cola")
@@ -171,7 +171,7 @@ struct RejectedFileRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+                .foregroundColor(.orange)
                 .frame(width: 20)
             Text(item.name)
                 .font(.callout.weight(.medium))
@@ -179,7 +179,7 @@ struct RejectedFileRow: View {
                 .truncationMode(.middle)
             Text(item.message)
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
             Spacer(minLength: 12)
             Button(action: onDismiss) {
                 Label("Quitar", systemImage: "xmark")

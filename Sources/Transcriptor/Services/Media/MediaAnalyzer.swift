@@ -6,15 +6,11 @@ struct MediaAnalyzer: Sendable {
     func analyze(url: URL) async throws -> MediaInfo {
         let asset = AVURLAsset(url: url)
 
-        let isPlayable: Bool
-        let tracks: [AVAssetTrack]
-        let duration: CMTime
-        do {
-            (isPlayable, tracks, duration) = try await asset.load(.isPlayable, .tracks, .duration)
-        } catch {
-            AppLogger.audio.error("No se pudieron cargar los metadatos de \(url.path): \(error)")
-            throw MediaError.loadFailed("AVAsset load falló: \(error)")
-        }
+        // Carga síncrona de propiedades (compatible macOS 11). Para archivos
+        // locales la carga es inmediata; esta call no bloquea el main actor.
+        let isPlayable = asset.isPlayable
+        let tracks = asset.tracks
+        let duration = asset.duration
 
         guard isPlayable else {
             AppLogger.audio.error("El archivo no es reproducible: \(url.path)")
@@ -32,6 +28,6 @@ struct MediaAnalyzer: Sendable {
             throw MediaError.unsupportedMedia
         }
 
-        return MediaInfo(url: url, duration: Duration.seconds(seconds))
+        return MediaInfo(url: url, duration: seconds)
     }
 }

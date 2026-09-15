@@ -12,14 +12,16 @@ struct UserErrorMessageTests {
                 == "El archivo no contiene ninguna pista de audio.")
     }
 
-    @Test("Mapea errores de Speech y assets")
-    func mapsSpeechErrors() {
-        #expect(UserErrorMessage.message(for: SpeechError.unsupportedLocale)
+    @Test("Mapea errores de Vosk y modelos")
+    func mapsVoskErrors() {
+        #expect(UserErrorMessage.message(for: VoskError.unsupportedLocale)
                 == "El idioma seleccionado no está soportado.")
-        #expect(UserErrorMessage.message(for: SpeechError.offlineAssetInstallation)
+        #expect(UserErrorMessage.message(for: VoskError.offlineAssetInstallation)
                 == "Se necesita conexión para instalar el idioma por primera vez.")
-        #expect(UserErrorMessage.message(for: SpeechError.assetNotInstalled)
-                == "El idioma seleccionado todavía no está instalado.")
+        #expect(UserErrorMessage.message(for: VoskError.modelNotFound)
+                == "El modelo de idioma necesario no está instalado.")
+        #expect(UserErrorMessage.message(for: VoskError.transcriptionNotAvailable)
+                == "El motor de transcripción local todavía no está disponible.")
     }
 
     @Test("Mapea errores de escritura")

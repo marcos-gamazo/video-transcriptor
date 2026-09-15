@@ -40,11 +40,11 @@ final class MemorySampler: @unchecked Sendable {
         lock.withLock { (samples, _peak) }
     }
 
-    func run(interval: Duration, during operation: () async throws -> Void) async rethrows {
+    func run(interval: TimeInterval, during operation: () async throws -> Void) async rethrows {
         let sampler = Task.detached { [self] in
             while !Task.isCancelled {
                 self.sample()
-                try? await Task.sleep(for: interval)
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
             }
         }
         try await operation()

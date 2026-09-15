@@ -5,7 +5,7 @@ import Foundation
 @Suite("ParagraphAggregator")
 struct ParagraphAggregatorTests {
     private static func segment(_ text: String, start: Double, end: Double) -> TranscriptionSegment {
-        TranscriptionSegment(start: .seconds(start), end: .seconds(end), text: text)
+        TranscriptionSegment(start: start, end: end, text: text)
     }
 
     private static func aggregate(
@@ -33,7 +33,7 @@ struct ParagraphAggregatorTests {
         let paragraphs = Self.aggregate(segments)
 
         #expect(paragraphs.count == 1)
-        #expect(paragraphs[0].start == .seconds(0))
+        #expect(paragraphs[0].start == 0.0)
         #expect(paragraphs[0].text == segments.map(\.text).joined(separator: " "))
     }
 
@@ -46,7 +46,7 @@ struct ParagraphAggregatorTests {
 
         #expect(paragraphs.count == 1,
                 "Una regla de cadencia fija partiría este flujo; el agregador no debe usarla.")
-        #expect(paragraphs[0].start == .seconds(0))
+        #expect(paragraphs[0].start == 0.0)
     }
 
     @Test("Un silencio mayor que el umbral separa párrafos con su timestamp correcto")
@@ -60,9 +60,9 @@ struct ParagraphAggregatorTests {
         let paragraphs = Self.aggregate(segments)
 
         #expect(paragraphs.count == 2)
-        #expect(paragraphs[0].start == .seconds(0))
+        #expect(paragraphs[0].start == 0.0)
         #expect(paragraphs[0].text == "primera segunda")
-        #expect(paragraphs[1].start == .seconds(5))
+        #expect(paragraphs[1].start == 5.0)
         #expect(paragraphs[1].text == "tercera cuarta")
     }
 
@@ -83,14 +83,14 @@ struct ParagraphAggregatorTests {
             Self.segment("inicio", start: 0, end: 2),
             Self.segment("final", start: 4, end: 6),
         ]
-        let paragraphs = Self.aggregate(segments, aggregator: ParagraphAggregator(pauseThreshold: .seconds(2)))
+        let paragraphs = Self.aggregate(segments, aggregator: ParagraphAggregator(pauseThreshold: 2.0))
         #expect(paragraphs.count == 2)
-        #expect(paragraphs[1].start == .seconds(4))
+        #expect(paragraphs[1].start == 4.0)
     }
 
     @Test("Puntuación de fin de frase con pausa breve separa")
     func sentencePunctuationWithShortGapBreaks() {
-        let aggregator = ParagraphAggregator(pauseThreshold: .seconds(2), shortGapThreshold: .milliseconds(750))
+        let aggregator = ParagraphAggregator(pauseThreshold: 2.0, shortGapThreshold: (750)/1000.0)
         let segments = [
             Self.segment("Buenos días.", start: 0, end: 1),
             Self.segment("Bienvenidos", start: 2, end: 3),
@@ -100,12 +100,12 @@ struct ParagraphAggregatorTests {
         #expect(paragraphs.count == 2)
         #expect(paragraphs[0].text == "Buenos días.")
         #expect(paragraphs[1].text == "Bienvenidos")
-        #expect(paragraphs[1].start == .seconds(2))
+        #expect(paragraphs[1].start == 2.0)
     }
 
     @Test("Puntuación sin pausa suficiente no separa")
     func sentencePunctuationWithTinyGapDoesNotBreak() {
-        let aggregator = ParagraphAggregator(pauseThreshold: .seconds(2), shortGapThreshold: .milliseconds(750))
+        let aggregator = ParagraphAggregator(pauseThreshold: 2.0, shortGapThreshold: (750)/1000.0)
         let segments = [
             Self.segment("Sí.", start: 0, end: 1),
             Self.segment("Adelante", start: 1.3, end: 2.3),
@@ -147,7 +147,7 @@ struct ParagraphAggregatorTests {
 
         let paragraph = aggregator.finish()
         #expect(paragraph?.text == "solo")
-        #expect(paragraph?.start == .seconds(0))
+        #expect(paragraph?.start == 0.0)
         #expect(aggregator.currentText.isEmpty)
         #expect(aggregator.currentStart == nil)
     }
@@ -158,11 +158,11 @@ struct ParagraphAggregatorTests {
         let groupCount = 60
         var segments: [TranscriptionSegment] = []
         var expected = Array(repeating: "", count: groupCount)
-        var expectedStarts = Array(repeating: Duration.zero, count: groupCount)
+        var expectedStarts = Array(repeating: 0.0, count: groupCount)
 
         for group in 0..<groupCount {
             let base = Double(group) * (3.0 + Double(wordsPerGroup))
-            expectedStarts[group] = .seconds(base)
+            expectedStarts[group] = base
             var words: [String] = []
             for word in 0..<wordsPerGroup {
                 let start = base + Double(word)

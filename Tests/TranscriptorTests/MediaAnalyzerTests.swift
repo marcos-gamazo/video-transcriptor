@@ -10,9 +10,7 @@ struct MediaAnalyzerTests {
         let url = try TestsFixtures.meetingAudioURL()
         let info = try await MediaAnalyzer().analyze(url: url)
         #expect(info.url == url)
-        let seconds = Double(info.duration.components.seconds)
-            + Double(info.duration.components.attoseconds) / 1e18
-        #expect(seconds > 55 && seconds < 65, "Duración observada: \(seconds) s")
+        #expect(info.duration > 55 && info.duration < 65, "Duración observada: \(info.duration) s")
     }
 
     @Test("Un archivo que no es multimedia devuelve un error de media")

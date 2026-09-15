@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "Transcriptor",
     platforms: [
-        .macOS(.v26)
+        .macOS(.v11)
     ],
     targets: [
         .executableTarget(
@@ -19,6 +19,11 @@ let package = Package(
             path: "Tests/TranscriptorTests",
             resources: [
                 .copy("Fixtures")
+            ],
+            swiftSettings: [
+                // El Swift Testing de la toolchain 6.3 requiere macOS 26;
+                // el producto/ejecutable sigue compilando para macOS 11.
+                .unsafeFlags(["-target", "arm64-apple-macosx26.0"])
             ]
         )
     ]

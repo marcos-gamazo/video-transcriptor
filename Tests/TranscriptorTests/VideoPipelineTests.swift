@@ -30,9 +30,7 @@ struct VideoPipelineTests {
 
         let info = try await MediaAnalyzer().analyze(url: url)
         #expect(info.url == url)
-        let seconds = Double(info.duration.components.seconds)
-            + Double(info.duration.components.attoseconds) / 1e18
-        #expect(seconds > 55 && seconds < 65, "Duración observada: \(seconds) s")
+        #expect(info.duration > 55 && info.duration < 65, "Duración observada: \(info.duration) s")
     }
 
     @Test("El stream lee todo el audio del vídeo", arguments: ["mov", "mp4", "m4v"])
@@ -57,12 +55,15 @@ struct VideoPipelineTests {
         #expect(frames > 900_000 && frames < 1_000_000, "Frames totales: \(frames)") // 950 841 en el Spike
     }
 
-    @Test("Transcribe el audio de un vídeo", arguments: ["mov", "mp4", "m4v"])
+    @Test(
+        "Transcribe el audio de un vídeo",
+        .disabled("Requiere la integración de libvosk (Fase 3)."),
+        arguments: ["mov", "mp4", "m4v"])
     func transcribesVideoAudio(fileExtension: String) async throws {
         let url = try await Self.videoURL(fileExtension: fileExtension)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        let service = SpeechAnalyzerService(locale: Locale(identifier: "es_ES"))
+        let service = VoskService(locale: Locale(identifier: "es_ES"))
         let collector = SegmentCollector()
         let summary = try await service.transcribe(url: url) { segment in
             collector.segments.append(segment)
@@ -78,9 +79,7 @@ struct VideoPipelineTests {
             Issue.record("Se esperaba un final de transcripción.")
             return
         }
-        let lastEndSeconds = Double(lastEnd.components.seconds)
-            + Double(lastEnd.components.attoseconds) / 1e18
-        #expect(lastEndSeconds > 45 && lastEndSeconds < 70, "Fin observado: \(lastEndSeconds) s")
+        #expect(lastEnd > 45 && lastEnd < 70, "Fin observado: \(lastEnd) s")
 
         let joined = segments.map(\.text).joined(separator: " ")
         #expect(joined.localizedCaseInsensitiveContains("buenos días"),

@@ -1,11 +1,10 @@
 import SwiftUI
 
 struct TranscriptionView: View {
-    @State private var viewModel = TranscriptionViewModel()
+    @StateObject private var viewModel = TranscriptionViewModel()
+    @ObservedObject private var logPresenter = LogPresenter.shared
 
     var body: some View {
-        @Bindable var viewModel = viewModel
-
         VStack(spacing: 14) {
             DropZoneView(
                 hasFiles: !viewModel.entries.isEmpty,
@@ -40,13 +39,13 @@ struct TranscriptionView: View {
                 } label: {
                     Label("Transcribir", systemImage: "play.fill")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .controlSize(.large)
                 .disabled(!viewModel.canStart)
                 .keyboardShortcut("t", modifiers: [.command, .shift])
                 .help("Empieza a transcribir todos los trabajos pendientes (⇧⌘T)")
 
-                Button(role: .destructive) {
+                Button {
                     Task { await viewModel.cancelAll() }
                 } label: {
                     Label("Cancelar", systemImage: "xmark")
@@ -60,7 +59,7 @@ struct TranscriptionView: View {
 
             HStack(spacing: 10) {
                 Label("Guardar en", systemImage: "folder")
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
                 Text(viewModel.destinationDirectory.path)
                     .font(.callout)
                     .lineLimit(1)
@@ -76,7 +75,6 @@ struct TranscriptionView: View {
             List {
                 if viewModel.entries.isEmpty && viewModel.rejectedFiles.isEmpty {
                     emptyState
-                        .listRowSeparator(.hidden)
                 } else {
                     ForEach(viewModel.entries) { entry in
                         JobRow(
@@ -102,6 +100,9 @@ struct TranscriptionView: View {
             footer
         }
         .frame(minWidth: 700, minHeight: 540)
+        .sheet(isPresented: $logPresenter.isPresented) {
+            LogView()
+        }
         .fileImporter(
             isPresented: $viewModel.isImportingFiles,
             allowedContentTypes: FileValidator.supportedContentTypes,
@@ -117,13 +118,13 @@ struct TranscriptionView: View {
         VStack(spacing: 8) {
             Image(systemName: "doc.plaintext")
                 .font(.system(size: 30))
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
                 .accessibilityHidden(true)
             Text("Aún no hay trabajos")
                 .font(.headline)
             Text("Añade archivos para empezar a transcribirlos")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
@@ -136,14 +137,14 @@ struct TranscriptionView: View {
             Label("Procesamiento local", systemImage: "lock.shield")
                 .accessibilityLabel("Procesamiento local. Este punto no es interactivo.")
             Text("Los archivos y las transcripciones se procesan en tu Mac y nunca se envían a servidores externos.")
-            Text("La primera transcripción de un idioma puede requerir descargar ese idioma directamente de Apple.")
-                .foregroundStyle(.secondary)
+            Text("La primera transcripción de un idioma puede requerir descargar el modelo de ese idioma.")
+                .foregroundColor(.secondary)
         }
         .font(.callout)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Procesamiento local. Los archivos y las transcripciones se procesan en tu Mac y nunca se envían a servidores externos. La primera transcripción de un idioma puede requerir descargar ese idioma directamente de Apple.")
+        .accessibilityLabel("Procesamiento local. Los archivos y las transcripciones se procesan en tu Mac y nunca se envían a servidores externos. La primera transcripción de un idioma puede requerir descargar el modelo de ese idioma.")
     }
 }

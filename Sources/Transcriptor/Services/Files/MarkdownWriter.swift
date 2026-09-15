@@ -101,8 +101,8 @@ final class MarkdownWriter {
         }
     }
 
-    static func timestampString(from duration: Duration) -> String {
-        let total = max(0, Int(duration.components.seconds))
+    static func timestampString(from duration: Double) -> String {
+        let total = max(0, Int(duration.rounded(.down)))
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let seconds = total % 60

@@ -1,11 +1,9 @@
 import AppKit
 import Foundation
-import Observation
-import Speech
+import Combine
 
 @MainActor
-@Observable
-final class TranscriptionViewModel {
+final class TranscriptionViewModel: ObservableObject {
     struct LanguageOption: Identifiable {
         let id: String
         let displayName: String
@@ -19,14 +17,14 @@ final class TranscriptionViewModel {
         let message: String
     }
 
-    var languageOptions: [LanguageOption] = []
-    var selectedLanguageID = "es"
-    var includeTimestamps = false
-    var areLanguagesLoading = true
-    var isImportingFiles = false
-    var destinationDirectory: URL = TranscriptionViewModel.defaultDestination
-    var entries: [TranscriptionQueue.Entry] = []
-    var rejectedFiles: [RejectedFile] = []
+    @Published var languageOptions: [LanguageOption] = []
+    @Published var selectedLanguageID = "es"
+    @Published var includeTimestamps = false
+    @Published var areLanguagesLoading = true
+    @Published var isImportingFiles = false
+    @Published var destinationDirectory: URL = TranscriptionViewModel.defaultDestination
+    @Published var entries: [TranscriptionQueue.Entry] = []
+    @Published var rejectedFiles: [RejectedFile] = []
 
     private let queue: TranscriptionQueue
     private let validator = FileValidator()
@@ -143,10 +141,11 @@ final class TranscriptionViewModel {
     }
 
     private func loadLanguages() async {
-        let supported = await SpeechTranscriber.supportedLocales
+        let supported = VoskModelManager.supportedLocales
         var byLanguage: [String: String] = [:]
         for locale in supported {
-            guard let code = locale.language.languageCode?.identifier else { continue }
+            let code = languageCode(of: locale)
+            guard !code.isEmpty else { continue }
             guard byLanguage[code] == nil else { continue }
             byLanguage[code] = Locale.current.localizedString(forLanguageCode: code) ?? code
         }
@@ -160,5 +159,12 @@ final class TranscriptionViewModel {
             selectedLanguageID = first.id
         }
         areLanguagesLoading = false
+    }
+
+    private func languageCode(of locale: Locale) -> String {
+        let id = locale.identifier
+        let separatorIndex = id.firstIndex { $0 == "_" || $0 == "-" }
+        guard let separatorIndex else { return id }
+        return String(id[..<separatorIndex])
     }
 }

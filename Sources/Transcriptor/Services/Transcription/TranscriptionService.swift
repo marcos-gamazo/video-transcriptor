@@ -2,7 +2,7 @@ import Foundation
 
 actor TranscriptionService: Transcribing {
     private let mediaAnalyzer = MediaAnalyzer()
-    private let assetManager = SpeechAssetManager()
+    private let modelManager = VoskModelManager()
 
     func transcribe(
         job: TranscriptionJob,
@@ -14,12 +14,12 @@ actor TranscriptionService: Transcribing {
             onState(.preparing)
 
             let mediaInfo = try await mediaAnalyzer.analyze(url: job.sourceURL)
-            let totalSeconds = Self.seconds(from: mediaInfo.duration)
+            let totalSeconds = mediaInfo.duration
 
-            let preflight = try await assetManager.preflight(locale: job.locale)
+            let preflight = try await modelManager.preflight(locale: job.locale)
             if !preflight.installed {
                 onState(.downloading)
-                _ = try await assetManager.install(locale: preflight.resolvedLocale) { fraction in
+                _ = try await modelManager.install(locale: preflight.resolvedLocale) { fraction in
                     onProgress(TranscriptionProgress(
                         overall: 0.5 * fraction,
                         download: fraction,
@@ -30,11 +30,11 @@ actor TranscriptionService: Transcribing {
             try Task.checkCancellation()
 
             onState(.transcribing)
-            let speech = SpeechAnalyzerService(locale: preflight.resolvedLocale)
-            let summary = try await speech.transcribe(url: job.sourceURL) { segment in
+            let vosk = VoskService(locale: preflight.resolvedLocale)
+            let summary = try await vosk.transcribe(url: job.sourceURL) { segment in
                 onSegment(segment)
                 guard totalSeconds > 0 else { return }
-                let fraction = min(1, Self.seconds(from: segment.end) / totalSeconds)
+                let fraction = min(1, segment.end / totalSeconds)
                 onProgress(TranscriptionProgress(
                     overall: 0.5 + 0.5 * fraction,
                     download: 0,
@@ -58,9 +58,5 @@ actor TranscriptionService: Transcribing {
             onState(.failed)
             throw error
         }
-    }
-
-    private static func seconds(from duration: Duration) -> Double {
-        Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
     }
 }

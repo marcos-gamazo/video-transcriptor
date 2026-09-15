@@ -7,7 +7,7 @@ import OSLog
 /// vez, copia la entrada en `LogStore` para poder consultarla desde la UI.
 struct AppLogger {
     static let app = Category(name: "app")
-    static let speech = Category(name: "speech")
+    static let vosk = Category(name: "vosk")
     static let audio = Category(name: "audio")
     static let export = Category(name: "export")
     static let queue = Category(name: "queue")

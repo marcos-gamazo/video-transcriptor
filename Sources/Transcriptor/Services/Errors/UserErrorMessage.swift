@@ -8,8 +8,8 @@ enum UserErrorMessage {
             return transcription.userMessage
         case let media as MediaError:
             return media.userMessage
-        case let speech as SpeechError:
-            return speech.userMessage
+        case let vosk as VoskError:
+            return vosk.userMessage
         case let output as OutputError:
             return output.userMessage
         case let validation as FileValidationError:

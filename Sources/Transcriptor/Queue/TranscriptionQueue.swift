@@ -30,7 +30,7 @@ actor TranscriptionQueue {
     private var worker: Task<Void, Never>?
     private var currentWork: (id: UUID, task: Task<Void, Never>)?
     private var observer: (@Sendable (Snapshot) -> Void)?
-    private var lastEmitTime: ContinuousClock.Instant?
+    private var lastEmitTime: Date?
     private var pendingSnapshot: Snapshot?
 
     init(
@@ -323,7 +323,7 @@ actor TranscriptionQueue {
     /// Throttled emit: terminal state changes and explicit flushes go out immediately;
     /// progress-only updates are coalesced to at most 5 Hz.
     private func emit(immediate: Bool = false) {
-        let now = ContinuousClock.now
+        let now = Date()
         let hasTerminal = entries.contains { $0.state == .completed || $0.state == .failed || $0.state == .cancelled }
 
         if immediate || hasTerminal || lastEmitTime == nil {
@@ -337,7 +337,7 @@ actor TranscriptionQueue {
             return
         }
 
-        if let last = lastEmitTime, now - last >= .milliseconds(200) {
+        if let last = lastEmitTime, now.timeIntervalSince(last) >= 0.2 {
             observer?(snapshot)
             lastEmitTime = now
             pendingSnapshot = nil

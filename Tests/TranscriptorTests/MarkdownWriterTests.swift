@@ -5,7 +5,7 @@ import Foundation
 @Suite("MarkdownWriter")
 struct MarkdownWriterTests {
     private static func paragraph(_ text: String, start: Double) -> TranscriptionParagraph {
-        TranscriptionParagraph(start: .seconds(start), text: text)
+        TranscriptionParagraph(start: start, text: text)
     }
 
     private static func tempFileURL(named name: String = "out-\(UUID().uuidString).md") -> URL {
@@ -53,7 +53,7 @@ struct MarkdownWriterTests {
 
     @Test("Formatea timestamps como HH:MM:SS", arguments: timestampCases)
     func timestampFormat(seconds: Double, expected: String) {
-        let string = MarkdownWriter.timestampString(from: .seconds(seconds))
+        let string = MarkdownWriter.timestampString(from: seconds)
         #expect(string == expected)
     }
 

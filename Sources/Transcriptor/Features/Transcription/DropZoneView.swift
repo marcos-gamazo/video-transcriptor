@@ -15,7 +15,7 @@ struct DropZoneView: View {
                 .strokeBorder(
                     style: StrokeStyle(lineWidth: 2, dash: isTargeted ? [0] : [6])
                 )
-                .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.6))
+                .foregroundColor(isTargeted ? Color.accentColor : Color.secondary.opacity(0.6))
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.accentColor.opacity(isTargeted ? 0.08 : 0.03))
@@ -24,14 +24,14 @@ struct DropZoneView: View {
             VStack(spacing: 10) {
                 Image(systemName: isTargeted ? "arrow.down.doc.fill" : "square.and.arrow.down")
                     .font(.system(size: 34))
-                    .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary)
+                    .foregroundColor(isTargeted ? Color.accentColor : Color.secondary)
                     .accessibilityHidden(true)
                 Text(hasFiles ? "Añade más archivos de audio o vídeo" : "Arrastra aquí tus archivos de audio o vídeo")
                     .font(.headline)
-                    .foregroundStyle(isTargeted ? Color.accentColor : Color.primary)
+                    .foregroundColor(isTargeted ? Color.accentColor : Color.primary)
                 Text("También puedes seleccionarlos manualmente")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
                 Button("Seleccionar archivos…", action: onSelectFiles)
                     .controlSize(.large)
                     .help("Abre el selector de archivos del sistema")

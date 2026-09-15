@@ -21,10 +21,6 @@ private func envInt(_ key: String) -> Int? {
     ProcessInfo.processInfo.environment[key].flatMap(Int.init)
 }
 
-private func seconds(of duration: Duration) -> Double {
-    Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
-}
-
 @Suite("Validación de memoria y rendimiento",
     .enabled(if: validationRequested),
     .serialized)
@@ -48,7 +44,7 @@ struct MemoryAndPerformanceValidationTests {
         _ url: URL,
         sampler: MemorySampler
     ) async throws {
-        try await sampler.run(interval: .milliseconds(50)) {
+        try await sampler.run(interval: (50)/1000.0) {
             _ = try await TranscriptionService().transcribe(job: job(url: url)) { _ in }
         }
     }
@@ -94,7 +90,7 @@ struct MemoryAndPerformanceValidationTests {
         }
 
         let info = try await MediaAnalyzer().analyze(url: url)
-        let duration = seconds(of: info.duration)
+        let duration = info.duration
         #expect(duration >= 150 * 60, "El archivo origen no tiene al menos ~2,5 horas: \(duration) s")
 
         let sampler = MemorySampler()
@@ -174,7 +170,7 @@ struct MemoryAndPerformanceValidationTests {
         let sampler = MemorySampler()
         var buffers = 0
         var frames: Int64 = 0
-        try await sampler.run(interval: .milliseconds(20)) {
+        try await sampler.run(interval: (20)/1000.0) {
             let stream = AudioStreamProvider.makeStream(url: url, format: AudioStreamProvider.fallbackFormat)
             var iterator = stream.makeAsyncIterator()
             while let input = try await iterator.next() {
@@ -211,7 +207,7 @@ struct MemoryAndPerformanceValidationTests {
         let job = Self.job(url: url)
         let transcription = Task {
             do {
-                try await sampler.run(interval: .milliseconds(50)) {
+                try await sampler.run(interval: (50)/1000.0) {
                     _ = try await TranscriptionService().transcribe(job: job, onState: { probe.record($0) }) { _ in }
                 }
                 return "completed"
@@ -226,7 +222,7 @@ struct MemoryAndPerformanceValidationTests {
         // garantizando que la lectura del audio sigue en curso.
         var deadline = Date().addingTimeInterval(30)
         while !probe.hasTranscribed, Date() < deadline {
-            try await Task.sleep(for: .milliseconds(20))
+            try await Task.sleep(nanoseconds: 20_000_000)
         }
         #expect(probe.hasTranscribed, "La transcripción nunca empezó.")
         transcription.cancel()
@@ -236,7 +232,7 @@ struct MemoryAndPerformanceValidationTests {
 
         // Tras cancelar, la memoria no debe seguir creciendo de forma sostenida.
         let peakDuring = sampler.peak
-        try await Task.sleep(for: .seconds(1))
+        try await Task.sleep(nanoseconds: 1_000_000_000)
         let after = MemoryTracker.currentBytes()
         #expect(after <= peakDuring + 128 * 1024 * 1024,
                 "La memoria siguió creciendo tras cancelar: \(peakDuring.miB) → \(after.miB).")
@@ -297,7 +293,7 @@ struct MemoryAndPerformanceValidationTests {
                 await Task.yield()
             }
         }
-        try await Task.sleep(for: .seconds(2))
+        try await Task.sleep(nanoseconds: 2_000_000_000)
         let iterationsInTwoSeconds = pump.iterations
         mainPump.cancel()
         transcription.cancel()

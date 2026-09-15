@@ -1,5 +1,5 @@
 import Foundation
-import Observation
+import Combine
 
 enum LogLevel: String, Sendable {
     case debug
@@ -16,7 +16,7 @@ struct LogEntryRecord: Identifiable, Equatable, Sendable {
 
     init(
         id: UUID = UUID(),
-        date: Date = .now,
+        date: Date = Date(),
         level: LogLevel,
         category: String,
         message: String
@@ -32,11 +32,10 @@ struct LogEntryRecord: Identifiable, Equatable, Sendable {
 /// Retiene en memoria las últimas entradas de registro para poder
 /// consultarlas desde la UI. El buffer es acotado para no crecer sin límite.
 @MainActor
-@Observable
-final class LogStore {
+final class LogStore: ObservableObject {
     static let shared = LogStore()
 
-    private(set) var entries: [LogEntryRecord] = []
+    @Published private(set) var entries: [LogEntryRecord] = []
     let capacity = 1000
 
     func append(_ entry: LogEntryRecord) {

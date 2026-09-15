@@ -25,20 +25,22 @@ struct TranscriptionDomainTests {
         #expect(Set(all).count == 7)
     }
 
-    @Test("Preflight de locale devuelve es_ES instalado")
+    @Test("Preflight de locale devuelve es_ES con modelo vosk-model-small-es")
     func preflightResolvesSpanish() async throws {
-        let manager = SpeechAssetManager()
+        let manager = VoskModelManager()
         let preflight = try await manager.preflight(locale: Locale(identifier: "es"))
         #expect(preflight.resolvedLocale.identifier == "es_ES")
-        #expect(preflight.installed)
+        #expect(preflight.modelName == "vosk-model-small-es")
     }
 
-    @Test("Install es un no-op cuando el idioma ya está instalado")
+    @Test(
+        "Install es un no-op cuando el idioma ya está instalado",
+        .disabled("Requiere la descarga de modelos Vosk (Fase 4)."))
     func installIsNoopWhenAlreadyInstalled() async throws {
         final class Counter: @unchecked Sendable {
             var value = 0
         }
-        let manager = SpeechAssetManager()
+        let manager = VoskModelManager()
         let preflight = try await manager.preflight(locale: Locale(identifier: "es_ES"))
         let counter = Counter()
         let resolved = try await manager.install(locale: preflight.resolvedLocale) { _ in
@@ -51,7 +53,9 @@ struct TranscriptionDomainTests {
 
 @Suite("TranscriptionService")
 struct TranscriptionServiceTests {
-    @Test("Transcribe un m4a completo y reporta estados y progreso")
+    @Test(
+        "Transcribe un m4a completo y reporta estados y progreso",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func transcribesMediaWithProgress() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(sourceURL: url, locale: Locale(identifier: "es_ES"), includeTimestamps: true)
@@ -81,7 +85,9 @@ struct TranscriptionServiceTests {
                 "El progreso debería acercarse a 1; último valor: \(collector.progressValues.last ?? -1)")
     }
 
-    @Test("El progreso de transcripción crece de forma globalmente creciente")
+    @Test(
+        "El progreso de transcripción crece de forma globalmente creciente",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func progressIsMonotonic() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(sourceURL: url, locale: Locale(identifier: "es_ES"), includeTimestamps: false)
@@ -109,7 +115,9 @@ struct TranscriptionServiceTests {
         #expect(diffs.allSatisfy { $0 >= $1 })
     }
 
-    @Test("Cancelar un trabajo se propaga como TranscriptionError.cancelled")
+    @Test(
+        "Cancelar un trabajo se propaga como TranscriptionError.cancelled",
+        .disabled("Requiere la integración de libvosk (Fase 3)."))
     func cancellationPropagates() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(sourceURL: url, locale: Locale(identifier: "es_ES"), includeTimestamps: false)

@@ -3,7 +3,6 @@ import AVFoundation
 import AVFAudio
 import CoreMedia
 import CoreAudio
-import Speech
 
 enum AudioStreamProvider {
     static let fallbackFormat = AudioStreamFormat(
@@ -134,14 +133,8 @@ struct AudioBuffersStream: AsyncSequence, Sendable {
             didOpen = true
 
             let asset = AVURLAsset(url: url)
-            let tracks: [AVAssetTrack]
-            do {
-                tracks = try await asset.load(.tracks)
-            } catch {
-                let filePath = url.path
-                AppLogger.audio.error("No se pudieron cargar las pistas de \(filePath): \(error)")
-                throw MediaError.unsupportedMedia
-            }
+            // Carga síncrona de pistas (compatible macOS 11; archivo local).
+            let tracks = asset.tracks
             let audioTracks = tracks.filter { $0.mediaType == .audio }
             guard !audioTracks.isEmpty else {
                 throw MediaError.missingAudioTrack
@@ -193,7 +186,6 @@ struct AudioBuffersStream: AsyncSequence, Sendable {
             }
 
             var sizeNeeded = 0
-            var retainedBlockBuffer: CMBlockBuffer?
             let firstStatus = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
                 sample,
                 bufferListSizeNeededOut: &sizeNeeded,
@@ -202,7 +194,7 @@ struct AudioBuffersStream: AsyncSequence, Sendable {
                 blockBufferAllocator: kCFAllocatorDefault,
                 blockBufferMemoryAllocator: kCFAllocatorDefault,
                 flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
-                blockBufferOut: &retainedBlockBuffer
+                blockBufferOut: nil
             )
             guard firstStatus == noErr, sizeNeeded >= MemoryLayout<AudioBufferList>.size else {
                 return nil
@@ -225,30 +217,30 @@ struct AudioBuffersStream: AsyncSequence, Sendable {
                 flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
                 blockBufferOut: &retained
             )
-            guard secondStatus == noErr, let finalBlockBuffer = retained else {
+            guard secondStatus == noErr, retained != nil,
+                  let pcm = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)) else {
                 raw.deallocate()
                 return nil
             }
 
-            let box = CMBlockBufferBox(finalBlockBuffer)
-            let pcm = AVAudioPCMBuffer(
-                pcmFormat: audioFormat,
-                bufferListNoCopy: audioBufferList,
-                deallocator: { _ in
-                    withExtendedLifetime(box.value) {}
-                    raw.deallocate()
+            // Copia manual de muestras (compatible macOS 11; el init
+            // bufferListNoCopy solo existe a partir de macOS 12).
+            let sourceList = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            let destinationList = UnsafeMutableAudioBufferListPointer(pcm.mutableAudioBufferList)
+            let bufferCount = Swift.min(sourceList.count, destinationList.count)
+            for index in 0..<bufferCount {
+                let source = sourceList[index]
+                let destination = destinationList[index]
+                let byteSize = Swift.min(source.mDataByteSize, destination.mDataByteSize)
+                guard byteSize > 0, let sourceData = source.mData, let destinationData = destination.mData else {
+                    continue
                 }
-            )
-            pcm?.frameLength = AVAudioFrameCount(frameCount)
+                memcpy(destinationData, sourceData, Int(byteSize))
+            }
+            pcm.frameLength = AVAudioFrameCount(frameCount)
+            withExtendedLifetime(retained) {}
+            raw.deallocate()
             return pcm
         }
-    }
-}
-
-private final class CMBlockBufferBox: @unchecked Sendable {
-    let value: CMBlockBuffer
-
-    init(_ value: CMBlockBuffer) {
-        self.value = value
     }
 }

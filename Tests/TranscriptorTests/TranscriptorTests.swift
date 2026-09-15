@@ -7,6 +7,6 @@ struct AppEnvironmentTests {
     func baseValues() {
         #expect(AppEnvironment.appName == "Transcriptor")
         #expect(AppEnvironment.bundleIdentifier == "com.transcriptor.app")
-        #expect(AppEnvironment.deploymentTarget == "macOS 26.0")
+        #expect(AppEnvironment.deploymentTarget == "macOS 11.0")
     }
 }

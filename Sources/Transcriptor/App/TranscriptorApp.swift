@@ -2,8 +2,6 @@ import SwiftUI
 
 @main
 struct TranscriptorApp: App {
-    @Environment(\.openWindow) private var openWindow
-
     init() {
         AppLogger.app.log(level: .info, "Inicio de Transcriptor (\(AppEnvironment.bundleIdentifier))")
     }
@@ -15,15 +13,10 @@ struct TranscriptorApp: App {
         .commands {
             CommandMenu("Registro") {
                 Button("Ver registro…") {
-                    openWindow(id: "log")
+                    LogPresenter.shared.isPresented = true
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
             }
         }
-
-        Window("Registro", id: "log") {
-            LogView()
-        }
-        .defaultSize(width: 720, height: 460)
     }
 }

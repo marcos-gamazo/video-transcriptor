@@ -1,4 +1,4 @@
-# Transcriptor Legacy (Intel / macOS 12)
+# Transcriptor Legacy (Intel / macOS 11+)
 
 ## Why
 
@@ -6,10 +6,10 @@ La versión actual de Transcriptor requiere macOS 26 y Apple Silicon (`arm64`), 
 
 Existe público objetivo que no puede ejecutar esa versión:
 
-* Macs Intel de la generación 2015 en adelante (por ejemplo el MacBook Air de 2015 con 8 GB de RAM).
-* Sistemas anteriores a macOS 26 (el MacBook Air 2015 soporta como máximo macOS 12 Monterey en su soporte oficial).
+* Macs Intel de la generación 2015 en adelante (por ejemplo el MacBook Air de 2015 con 8 GB de RAM y un i5 a 1,6 GHz).
+* Sistemas anteriores a macOS 26. El MacBook Air 2015 soporta oficialmente hasta macOS 12 Monterey; un equipo objetivo concreto ya instalado corre **macOS 11 Big Sur**, que se adopta como versión mínima soportada. Al fijar el deployment target en `macOS 11.0`, la aplicación también se ejecuta en todas las versiones posteriores (12, 13, 14, 15, 26…).
 
-En macOS 12, la API de Speech disponible (`SFSpeechRecognizer`) no permite transcripción on-device sin Neural Engine: en Intel carece de NPU y deriva (requiere conexión a los servidores de Apple). Esto rompería los requisitos de privacidad y funcionamiento offline de la aplicación.
+En macOS 11 y 12, la API de Speech disponible (`SFSpeechRecognizer`) no permite transcripción on-device sin Neural Engine: en Intel carece de NPU y deriva (requiere conexión a los servidores de Apple). Esto rompería los requisitos de privacidad y funcionamiento offline de la aplicación.
 
 Por tanto, esta versión necesita un motor de transcripción local ajeno a las APIs de Speech de Apple, eficiente en CPUs Intel modestas, y embebido dentro de la propia aplicación.
 
@@ -24,11 +24,12 @@ Se crea una variante de la misma aplicación para Macs Intel y sistemas anterior
 
 Cambios concretos:
 
-* Deployment target macOS 12.0 y arquitectura `x86_64`.
+* Deployment target macOS 11.0 y arquitectura `x86_64`.
 * Nuevo `VoskService` que sustituye a `SpeechAnalyzerService`.
 * `SpeechAssetManager` se sustituye por un gestor de modelos Vosk locales (modelo por idioma, comprobación de presencia y descarga/instalación).
 * El formato de audio negociado pasa a ser PCM mono de 16 kHz (requisito de Vosk) con conversión mediante streaming.
 * El binario debe poder compilarse x86_64 y funcionar en equipos con 8 GB de RAM.
+* Adaptación del código compartido para que sea compatible con el deployment target macOS 11: sustituir `Observation` (`@Observable`/`@Bindable`) por Combine, `Duration`/`ContinuousClock` por representaciones de `Double`/temporizadores basados en `Date`, y las APIs de SwiftUI que requieren macOS 12+ por equivalentes disponibles en macOS 11. El comportamiento observable para el usuario no cambia.
 
 ## Capabilities
 
