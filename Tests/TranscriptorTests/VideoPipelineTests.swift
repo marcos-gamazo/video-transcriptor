@@ -3,7 +3,7 @@ import Foundation
 import AVFoundation
 @testable import Transcriptor
 
-@Suite("VideoPipeline", .serialized)
+@Suite("VideoPipeline", .serialized, .enabled(if: mediaTestsEnabled))
 struct VideoPipelineTests {
     private static let isCancelled: @Sendable () -> Bool = { false }
 

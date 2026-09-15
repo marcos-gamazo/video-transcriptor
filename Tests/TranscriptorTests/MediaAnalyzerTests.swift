@@ -3,7 +3,7 @@ import Foundation
 import AVFoundation
 @testable import Transcriptor
 
-@Suite("MediaAnalyzer")
+@Suite("MediaAnalyzer", .enabled(if: mediaTestsEnabled))
 struct MediaAnalyzerTests {
     @Test("Analiza un m4a y obtiene su duración")
     func analyzesAudioFile() async throws {

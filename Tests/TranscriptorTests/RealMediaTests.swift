@@ -88,7 +88,7 @@ struct ModelInstallationTests {
 
 // MARK: - 12.21 MP3 real media
 
-@Suite("RealMediaMP3")
+@Suite("RealMediaMP3", .enabled(if: mediaTestsEnabled))
 struct RealMediaMP3Tests {
     private static func createMinimalMP3(at url: URL) throws {
         var data = Data()
@@ -139,7 +139,7 @@ struct RealMediaMP3Tests {
 
 // MARK: - 12.22 WAV real media
 
-@Suite("RealMediaWAV")
+@Suite("RealMediaWAV", .enabled(if: mediaTestsEnabled))
 struct RealMediaWAVTests {
     /// Convierte un M4A a un WAV PCM float32 mono de 22050 Hz.
     ///
@@ -247,7 +247,7 @@ struct RealMediaWAVTests {
 
 // MARK: - 12.27 Real files of different durations
 
-@Suite("RealMediaDurations")
+@Suite("RealMediaDurations", .enabled(if: mediaTestsEnabled))
 struct RealMediaDurationsTests {
     @Test(
         "La transcripción de un m4a de ~60s completa sin error",
@@ -268,7 +268,7 @@ struct RealMediaDurationsTests {
 
 // MARK: - 15 Final Product Validation (end-to-end through the real queue)
 
-@Suite("EndToEndValidation", .serialized)
+@Suite("EndToEndValidation", .serialized, .enabled(if: mediaTestsEnabled))
 struct EndToEndValidationTests {
     private func tempDirectory() throws -> URL {
         let dir = FileManager.default.temporaryDirectory

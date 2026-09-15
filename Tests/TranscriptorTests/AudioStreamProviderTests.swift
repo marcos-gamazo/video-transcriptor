@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import Transcriptor
 
-@Suite("AudioStreamProvider")
+@Suite("AudioStreamProvider", .enabled(if: mediaTestsEnabled))
 struct AudioStreamProviderTests {
     private let format = AudioStreamProvider.fallbackFormat
 

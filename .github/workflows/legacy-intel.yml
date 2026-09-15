@@ -21,10 +21,11 @@ jobs:
         with:
           swift-version: '6.3.3'
       - name: Tests nativos arm64
-        timeout-minutes: 6
+        timeout-minutes: 10
         env:
           SWIFT_TEST_TARGET: arm64-apple-macosx26.0
-        run: swift --version && swift test --filter ParagraphAggregatorTests 2>&1 | tee tests.log
+          TRANSCRIPTOR_SKIP_MEDIA_TESTS: 1
+        run: swift --version && swift test 2>&1 | tee tests.log
       - name: Subir log de tests si falla
         if: failure()
         uses: actions/upload-artifact@v6

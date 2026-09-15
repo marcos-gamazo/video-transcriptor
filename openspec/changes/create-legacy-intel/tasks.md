@@ -3,7 +3,8 @@
 ## 1. Project Setup (Legacy)
 
 * [x] 1.1 Crear la rama `legacy-intel` partiendo de la versión Apple Silicon. (hecho: rama creada y publicada en GitHub)
-* [ ] 1.2 Configurar el target para Intel (`x86_64`). (toolchain `x86_64-apple-macosx`)
+* [ ] 1.2 Configurar el target para Intel (`x86_64`). (toolchain `x86_64-apple-macosx`; verificación en CI: `swift build --triple x86_64-apple-macosx11.0` + `vtool` deployment macOS 11 — job `build-x86_64` de `legacy-intel.yml`)
+* [x] 1.2b Estrategia de tests en CI. (el runner headless bloquea AVFoundation → deadlock en suites de media; se resuelve con `TRANSCRIPTOR_SKIP_MEDIA_TESTS=1` que deshabilita las suites AVFoundation vía `.enabled(if: mediaTestsEnabled)`; ver `Tests/TranscriptorTests/TestSupport/MediaTestGate.swift`. Las suites puras corren en CI, las de media/memoria se ejecutan localmente)
 * [x] 1.3 Configurar `macOS 11.0` como deployment target mínimo. (se mantiene Swift 6 si el toolchain lo permite para ese target; el binario corre en macOS 11 y superiores; `Package.swift` → `.macOS(.v11)`, `AppEnvironment.deploymentTarget` → `"macOS 11.0"`)
 * [x] 1.4 Mantener Swift Concurrency y SwiftUI como base de la UI.
 * [x] 1.5 Eliminar las dependencias de las APIs de Speech de Apple (`SpeechAnalyzer`, `SpeechTranscriber`, `Speech.AssetInventory`) del código compilado. (eliminado `Sources/Transcriptor/Services/Speech/`; creado `Services/Vosk/` con `VoskService`, `VoskModelManager`, `VoskError` como stubs Fase 1)
