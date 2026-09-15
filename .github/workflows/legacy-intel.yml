@@ -8,7 +8,7 @@ on:
 jobs:
   test-native:
     name: Tests (arm64)
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Versiones
@@ -17,27 +17,29 @@ jobs:
           xcodebuild -version
       - name: Tests nativos arm64
         env:
-          SWIFT_TEST_TARGET: arm64-apple-macosx15.0
+          SWIFT_TEST_TARGET: arm64-apple-macosx26.0
         run: swift test
 
   build-x86_64:
     name: Build x86_64 (macOS 11)
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Versiones
         run: swift --version
       - name: Cross-compile x86_64 con deployment macOS 11
         run: |
+          set -o pipefail
           SDK=$(xcrun --sdk macosx --show-sdk-path)
           swift build \
             --triple x86_64-apple-macosx11.0 \
-            -sdk "$SDK" \
+            --sdk "$SDK" \
             2>&1 | tee build.log
       - name: Verificar arquitectura x86_64
         run: |
+          set -euo pipefail
           BIN=$(swift build --triple x86_64-apple-macosx11.0 \
-            -sdk "$(xcrun --sdk macosx --show-sdk-path)" --show-bin-path)/Transcriptor
+            --sdk "$(xcrun --sdk macosx --show-sdk-path)" --show-bin-path)/Transcriptor
           file "$BIN"
           lipo -info "$BIN" || true
           echo "-- deployment target --"
