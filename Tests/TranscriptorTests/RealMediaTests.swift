@@ -62,7 +62,7 @@ struct LanguageSelectionTests {
 struct ModelInstallationTests {
     @Test(
         "Install es un no-op cuando el modelo ya está instalado",
-        .disabled("Requiere la descarga de modelos Vosk (Fase 4)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func installNoOpWhenAlreadyInstalled() async throws {
         let manager = VoskModelManager()
         let preflight = try await manager.preflight(locale: Locale(identifier: "es_ES"))
@@ -226,7 +226,7 @@ struct RealMediaWAVTests {
 
     @Test(
         "Transcribe un WAV real y produce segmentos con texto",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func transcribesWAVEndToEnd() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("wav-transcribe-\(UUID().uuidString)")
@@ -251,7 +251,7 @@ struct RealMediaWAVTests {
 struct RealMediaDurationsTests {
     @Test(
         "La transcripción de un m4a de ~60s completa sin error",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func transcribesShortAudio() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(
@@ -295,7 +295,7 @@ struct EndToEndValidationTests {
 
     @Test(
         "15.1/15.13 Cola real transcribe un m4a y escribe un .md correcto en disco",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func queueTranscribesAudioAndWritesMarkdown() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let destination = try tempDirectory()
@@ -338,7 +338,7 @@ struct EndToEndValidationTests {
 
     @Test(
         "15.3 La transcripción sin timestamps escribe Markdown limpio",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func queueWritesCleanMarkdownWithoutTimestamps() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let destination = try tempDirectory()
@@ -371,12 +371,15 @@ struct EndToEndValidationTests {
         let content = try String(contentsOf: output, encoding: .utf8)
         #expect(!content.contains("### ["), "Sin timestamps no debería haber bloques marcados.")
         #expect(!content.contains("["), "Sin timestamps no debería aparecer metadatos de tiempo.")
-        #expect(content.contains("."), "Debería contener texto transcrito.")
+        // Vosk no emite puntuación; se verifica que haya texto transcrito real tras el encabezado.
+        let body = content.split(separator: "\n").dropFirst().joined()
+        #expect(!body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Debería contener texto transcrito, recibió: \(content)")
     }
 
     @Test(
         "15.5 La cola real procesa varios archivos secuencialmente en orden",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func queueProcessesMultipleFilesSequentially() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let destination = try tempDirectory()

@@ -112,6 +112,25 @@ struct TranscriptionView: View {
                 Task { await viewModel.addFiles(urls) }
             }
         }
+        .alert(isPresented: $viewModel.isConfirmingModelDownload) {
+            Alert(
+                title: Text("¿Descargar el modelo de idioma?"),
+                message: Text(modelDownloadMessage),
+                primaryButton: .default(Text("Descargar")) {
+                    Task { await viewModel.confirmModelDownload() }
+                },
+                secondaryButton: .cancel {
+                    viewModel.dismissModelDownload()
+                }
+            )
+        }
+    }
+
+    private var modelDownloadMessage: String {
+        guard let notice = viewModel.modelDownloadNotice else { return "" }
+        return "El idioma \(notice.displayName) todavía no está instalado en tu Mac. "
+            + "Se descargará el modelo (\(notice.sizeHint)) desde la fuente oficial de Vosk. "
+            + "Se necesita conexión a Internet la primera vez."
     }
 
     private var emptyState: some View {

@@ -90,16 +90,23 @@ La biblioteca Vosk se compilará como un `libvosk.a` estático x86_64 para macOS
 
 ### 4. Servicio de transcripción
 
-Crear un `VoskService` que implemente el mismo protocolo `Transcribing` que `SpeechAnalyzerService`.
+`TranscriptionService` (fachada única que implementa el protocolo `Transcribing` que consume la cola) delega en un `VoskService` de bajo nivel:
 
-Responsabilidades:
+```mermaid
+flowchart LR
+    Queue["TranscriptionQueue"] -->|"Transcribing"| Service["TranscriptionService"]
+    Service --> Vosk["VoskService"]
+    Vosk -->|"PCM 16 kHz"| VoskLib["Vosk C API"]
+```
 
-1. Recibir la URL del archivo multimedia.
+`VoskService`:
+
+1. Recibe la URL del archivo multimedia.
 2. Negotiar el formato de audio (16 kHz, mono, 16 bits, PCM) con `AudioStreamProvider`.
 3. Alimentar al modelo Vosk con buffers de PCM.
 4. Extraer resultados con información temporal (timestamps de palabra) de cada utterance.
 5. Convertir a `TranscriptionSegment` y llamar a `onSegment`.
-6. Actualizar progreso mediante la duración procesada / duración total.
+6. Reportar el final del flujo para que `TranscriptionService` calcule el progreso por duración procesada / duración total.
 
 ---
 

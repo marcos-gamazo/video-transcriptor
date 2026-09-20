@@ -225,19 +225,23 @@ struct AudioBuffersStream: AsyncSequence, Sendable {
 
             // Copia manual de muestras (compatible macOS 11; el init
             // bufferListNoCopy solo existe a partir de macOS 12).
+            // Nota: AVAudioPCMBuffer expone mDataByteSize == 0 hasta que se
+            // fija frameLength; nosotros calculamos el tamaño y lo fijamos.
+            pcm.frameLength = AVAudioFrameCount(frameCount)
+            let bytesPerFrame = Int(pcm.format.streamDescription.pointee.mBytesPerFrame)
             let sourceList = UnsafeMutableAudioBufferListPointer(audioBufferList)
             let destinationList = UnsafeMutableAudioBufferListPointer(pcm.mutableAudioBufferList)
             let bufferCount = Swift.min(sourceList.count, destinationList.count)
-            for index in 0..<bufferCount {
+for index in 0..<bufferCount {
                 let source = sourceList[index]
-                let destination = destinationList[index]
-                let byteSize = Swift.min(source.mDataByteSize, destination.mDataByteSize)
+                var destination = destinationList[index]
+                let byteSize = Swift.min(Int(source.mDataByteSize), Int(frameCount) * bytesPerFrame)
                 guard byteSize > 0, let sourceData = source.mData, let destinationData = destination.mData else {
                     continue
                 }
-                memcpy(destinationData, sourceData, Int(byteSize))
+                memcpy(destinationData, sourceData, byteSize)
+                destination.mDataByteSize = UInt32(byteSize)
             }
-            pcm.frameLength = AVAudioFrameCount(frameCount)
             withExtendedLifetime(retained) {}
             raw.deallocate()
             return pcm

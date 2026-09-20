@@ -17,11 +17,13 @@ struct UserErrorMessageTests {
         #expect(UserErrorMessage.message(for: VoskError.unsupportedLocale)
                 == "El idioma seleccionado no está soportado.")
         #expect(UserErrorMessage.message(for: VoskError.offlineAssetInstallation)
-                == "Se necesita conexión para instalar el idioma por primera vez.")
+                == "Se necesita conexión a Internet para instalar el idioma por primera vez.")
         #expect(UserErrorMessage.message(for: VoskError.modelNotFound)
                 == "El modelo de idioma necesario no está instalado.")
-        #expect(UserErrorMessage.message(for: VoskError.transcriptionNotAvailable)
-                == "El motor de transcripción local todavía no está disponible.")
+        #expect(UserErrorMessage.message(for: VoskError.downloadFailed("x"))
+                == "No se pudo descargar el modelo de idioma.")
+        #expect(UserErrorMessage.message(for: VoskError.modelCorrupted("x"))
+                == "El modelo de idioma está dañado o es incompatible.")
     }
 
     @Test("Mapea errores de escritura")

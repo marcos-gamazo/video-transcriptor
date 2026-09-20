@@ -17,6 +17,12 @@ final class TranscriptionViewModel: ObservableObject {
         let message: String
     }
 
+    struct ModelDownloadNotice {
+        let displayName: String
+        let modelName: String
+        let sizeHint: String
+    }
+
     @Published var languageOptions: [LanguageOption] = []
     @Published var selectedLanguageID = "es"
     @Published var includeTimestamps = false
@@ -25,9 +31,12 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var destinationDirectory: URL = TranscriptionViewModel.defaultDestination
     @Published var entries: [TranscriptionQueue.Entry] = []
     @Published var rejectedFiles: [RejectedFile] = []
+    @Published var modelDownloadNotice: ModelDownloadNotice?
+    @Published var isConfirmingModelDownload = false
 
     private let queue: TranscriptionQueue
     private let validator = FileValidator()
+    private let modelManager = VoskModelManager()
 
     var selectedLanguage: Locale { Locale(identifier: selectedLanguageID) }
 
@@ -102,7 +111,36 @@ final class TranscriptionViewModel: ObservableObject {
 
     func start() async {
         await queue.applyPendingSettings(locale: selectedLanguage, includeTimestamps: includeTimestamps)
+        guard hasPending else { return }
+
+        // La primera transcripción de un idioma requiere descargar su modelo:
+        // se avisa antes de iniciar la descarga en lugar de empezar sin más.
+        do {
+            let preflight = try await modelManager.preflight(locale: selectedLanguage)
+            guard preflight.installed else {
+                modelDownloadNotice = ModelDownloadNotice(
+                    displayName: displayName(for: preflight.resolvedLocale),
+                    modelName: preflight.modelName,
+                    sizeHint: VoskModelManager.zipSizeHint(for: preflight.modelName)
+                )
+                isConfirmingModelDownload = true
+                return
+            }
+        } catch {
+            // Si el idioma no está soportado, se continúa y la cola lo reporta.
+        }
         await queue.start()
+    }
+
+    func confirmModelDownload() async {
+        isConfirmingModelDownload = false
+        modelDownloadNotice = nil
+        await queue.start()
+    }
+
+    func dismissModelDownload() {
+        isConfirmingModelDownload = false
+        modelDownloadNotice = nil
     }
 
     func cancelAll() async {
@@ -166,5 +204,12 @@ final class TranscriptionViewModel: ObservableObject {
         let separatorIndex = id.firstIndex { $0 == "_" || $0 == "-" }
         guard let separatorIndex else { return id }
         return String(id[..<separatorIndex])
+    }
+
+    private func displayName(for locale: Locale) -> String {
+        let code = languageCode(of: locale)
+        return languageOptions.first(where: { $0.id == code })?.displayName
+            ?? Locale.current.localizedString(forLanguageCode: code)
+            ?? code
     }
 }

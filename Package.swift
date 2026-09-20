@@ -14,26 +14,54 @@ let testTargetFlags: [SwiftSetting] = {
     return [.unsafeFlags(["-target", target])]
 }()
 
+// Vosk (Kaldi) se enlaza como dylib universal2 (x86_64 + arm64) vendido en
+// `Vendor/vosk`. El header se expone como módulo C `CVosk`. El deploy se hace
+// con install name `@rpath/libvosk.dylib` para embeber en el .app (Fase 11).
+let voskDir = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent()
+    .appendingPathComponent("Vendor/vosk", isDirectory: true)
+    .path
+
+let voskLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags([
+        "-L", voskDir,
+        "-lvosk",
+        // Ruta del Vendor durante desarrollo (el binario corre desde .build).
+        "-Xlinker", "-rpath", "-Xlinker", voskDir,
+        // En la app empaquetada el dylib se embebe en Contents/Frameworks.
+        "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"
+    ])
+]
+
 let package = Package(
     name: "Transcriptor",
     platforms: [
         .macOS(.v11)
     ],
     targets: [
+        .target(
+            name: "CVosk",
+            path: "Sources/CVosk",
+            publicHeadersPath: "include"
+        ),
         .executableTarget(
             name: "Transcriptor",
-            path: "Sources/Transcriptor"
+            dependencies: ["CVosk"],
+            path: "Sources/Transcriptor",
+            linkerSettings: voskLinkerSettings
         ),
         .testTarget(
             name: "TranscriptorTests",
             dependencies: [
-                "Transcriptor"
+                "Transcriptor",
+                "CVosk"
             ],
             path: "Tests/TranscriptorTests",
             resources: [
                 .copy("Fixtures")
             ],
-            swiftSettings: testTargetFlags
+            swiftSettings: testTargetFlags,
+            linkerSettings: voskLinkerSettings
         )
     ]
 )

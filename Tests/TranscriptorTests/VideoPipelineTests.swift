@@ -57,7 +57,7 @@ struct VideoPipelineTests {
 
     @Test(
         "Transcribe el audio de un vídeo",
-        .disabled("Requiere la integración de libvosk (Fase 3)."),
+        .enabled(if: voskIntegrationTestsEnabled),
         arguments: ["mov", "mp4", "m4v"])
     func transcribesVideoAudio(fileExtension: String) async throws {
         let url = try await Self.videoURL(fileExtension: fileExtension)

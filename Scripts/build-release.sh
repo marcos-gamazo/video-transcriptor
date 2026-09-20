@@ -23,7 +23,22 @@ cp "$ROOT/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT/Assets/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Assets/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 
+echo "▸ Embedding libvosk.dylib (Vosk engine) in Contents/Frameworks..."
+FRAMEWORKS_DIR="$CONTENTS/Frameworks"
+mkdir -p "$FRAMEWORKS_DIR"
+cp "$ROOT/Vendor/vosk/libvosk.dylib" "$FRAMEWORKS_DIR/libvosk.dylib"
+# El install name del dylib prebuilt es @rpath/libvosk.dylib (verificado con
+# otool -D). El binario resuelve @rpath a @executable_path/../Frameworks, que
+# se añade en Package.swift. Si alguna build futura enlaza con otro nombre,
+# forzar ambos:
+#   install_name_tool -id @rpath/libvosk.dylib "$FRAMEWORKS_DIR/libvosk.dylib"
+#   install_name_tool -change libvosk.dylib @rpath/libvosk.dylib "$MACOS_DIR/$APP_NAME"
+
 chmod 755 "$MACOS_DIR/$APP_NAME"
+chmod 644 "$FRAMEWORKS_DIR/libvosk.dylib"
+
+echo "▸ Verificando dependencias del binario..."
+otool -L "$MACOS_DIR/$APP_NAME" | grep -q "libvosk.dylib" && echo "   libvosk OK"
 
 echo "▸ Ad-hoc signing..."
 codesign --force --deep -s "$SIGN_IDENTITY" --options runtime "$APP_BUNDLE" 2>&1

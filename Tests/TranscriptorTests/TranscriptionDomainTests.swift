@@ -25,17 +25,40 @@ struct TranscriptionDomainTests {
         #expect(Set(all).count == 7)
     }
 
-    @Test("Preflight de locale devuelve es_ES con modelo vosk-model-small-es")
+    @Test("Preflight de locale devuelve es_ES con modelo vosk-model-small-es-0.42")
     func preflightResolvesSpanish() async throws {
         let manager = VoskModelManager()
         let preflight = try await manager.preflight(locale: Locale(identifier: "es"))
         #expect(preflight.resolvedLocale.identifier == "es_ES")
-        #expect(preflight.modelName == "vosk-model-small-es")
+        #expect(preflight.modelName == "vosk-model-small-es-0.42")
+    }
+
+    @Test("El modelo en inglés resuelve al modelo oficial en-US")
+    func preflightResolvesEnglish() async throws {
+        let manager = VoskModelManager()
+        let preflight = try await manager.preflight(locale: Locale(identifier: "en"))
+        #expect(preflight.resolvedLocale.identifier == "en_US")
+        #expect(preflight.modelName == "vosk-model-small-en-us-0.15")
+    }
+
+    @Test("La URL de descarga apunta a la fuente oficial de Vosk")
+    func officialDownloadURL() {
+        #expect(VoskModelManager.downloadURL(for: "vosk-model-small-es-0.42")?
+            .absoluteString == "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip")
+        #expect(VoskModelManager.downloadURL(for: "vosk-model-small-en-us-0.15")?
+            .absoluteString == "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip")
+    }
+
+    @Test("El tamaño del zip de cada modelo tiene una pista de tamaño")
+    func zipSizeHints() {
+        #expect(!VoskModelManager.zipSizeHint(for: "vosk-model-small-es-0.42").isEmpty)
+        #expect(!VoskModelManager.zipSizeHint(for: "vosk-model-small-en-us-0.15").isEmpty)
+        #expect(!VoskModelManager.zipSizeHint(for: "desconocido").isEmpty)
     }
 
     @Test(
         "Install es un no-op cuando el idioma ya está instalado",
-        .disabled("Requiere la descarga de modelos Vosk (Fase 4)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func installIsNoopWhenAlreadyInstalled() async throws {
         final class Counter: @unchecked Sendable {
             var value = 0
@@ -55,7 +78,7 @@ struct TranscriptionDomainTests {
 struct TranscriptionServiceTests {
     @Test(
         "Transcribe un m4a completo y reporta estados y progreso",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func transcribesMediaWithProgress() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(sourceURL: url, locale: Locale(identifier: "es_ES"), includeTimestamps: true)
@@ -87,7 +110,7 @@ struct TranscriptionServiceTests {
 
     @Test(
         "El progreso de transcripción crece de forma globalmente creciente",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func progressIsMonotonic() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(sourceURL: url, locale: Locale(identifier: "es_ES"), includeTimestamps: false)
@@ -117,7 +140,7 @@ struct TranscriptionServiceTests {
 
     @Test(
         "Cancelar un trabajo se propaga como TranscriptionError.cancelled",
-        .disabled("Requiere la integración de libvosk (Fase 3)."))
+        .enabled(if: voskIntegrationTestsEnabled))
     func cancellationPropagates() async throws {
         let url = try TestsFixtures.meetingAudioURL()
         let job = TranscriptionJob(sourceURL: url, locale: Locale(identifier: "es_ES"), includeTimestamps: false)
