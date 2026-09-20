@@ -12,14 +12,38 @@ MACOS_DIR="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
 SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 
+# Cross-compile opcional: SWIFT_TRIPLE (p. ej. x86_64-apple-macosx11.0) y
+# SWIFT_SDK_PATH (xcrun --sdk macosx --show-sdk-path). Vacío = build nativo.
+SWIFT_ARGS=()
+if [[ -n "${SWIFT_TRIPLE:-}" ]]; then
+  SWIFT_ARGS+=(--triple "$SWIFT_TRIPLE")
+  if [[ -n "${SWIFT_SDK_PATH:-}" ]]; then
+    SWIFT_ARGS+=(--sdk "$SWIFT_SDK_PATH")
+  fi
+fi
+
+ARCH_SUFFIX=""
+if [[ "${SWIFT_TRIPLE:-}" == *x86_64* ]]; then
+  ARCH_SUFFIX="-Intel"
+fi
+
 echo "▸ Building $APP_NAME $VERSION (release)..."
-(cd "$ROOT" && swift build -c release 2>&1 | grep -E "error:|Build complete|warning:" | head -5)
+( cd "$ROOT" && swift build -c release "${SWIFT_ARGS[@]}" 2>&1 | grep -E "error:|Build complete|warning:" | head -5 )
+
+BIN_DIR="$ROOT/.build/release"
+if [[ -n "${SWIFT_TRIPLE:-}" ]]; then
+  BIN_DIR="$(cd "$ROOT" && swift build -c release "${SWIFT_ARGS[@]}" --show-bin-path)"
+  case "$BIN_DIR" in
+    /*) ;;
+    *) BIN_DIR="$ROOT/$BIN_DIR" ;;
+  esac
+fi
 
 echo "▸ Assembling $APP_NAME.app bundle..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS_DIR" "$RESOURCES"
 
-cp "$ROOT/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+cp "$BIN_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT/Assets/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Assets/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 
@@ -45,7 +69,7 @@ codesign --force --deep -s "$SIGN_IDENTITY" --options runtime "$APP_BUNDLE" 2>&1
 codesign --verify --verbose "$APP_BUNDLE" 2>&1 | head -3
 
 echo "▸ Creating DMG..."
-DMG_PATH="$BUILD_DIR/$APP_NAME-$VERSION.dmg"
+DMG_PATH="$BUILD_DIR/$APP_NAME-$VERSION$ARCH_SUFFIX.dmg"
 rm -f "$DMG_PATH"
 
 hdiutil create -srcfolder "$APP_BUNDLE" \
