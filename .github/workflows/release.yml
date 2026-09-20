@@ -25,11 +25,10 @@ jobs:
         with:
           swift-version: '6.3.3'
       - name: Empaquetar DMG x86_64 (macOS 11)
-        env:
-          SWIFT_TRIPLE: x86_64-apple-macosx11.0
-          SWIFT_SDK_PATH: $(xcrun --sdk macosx --show-sdk-path)
         run: |
           chmod +x Scripts/build-release.sh
+          export SWIFT_TRIPLE="x86_64-apple-macosx11.0"
+          export SWIFT_SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
           ./Scripts/build-release.sh "${GITHUB_REF_NAME#v}"
       - name: Publicar release
         env:
