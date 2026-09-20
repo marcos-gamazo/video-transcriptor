@@ -1,0 +1,54 @@
+name: release-apple-silicon
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-apple-silicon
+  cancel-in-progress: true
+
+jobs:
+  package-and-release:
+    name: Empaquetar y publicar release (Apple Silicon, macOS 26+)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Instalar toolchain swift.org 6.3
+        uses: swift-actions/setup-swift@v3
+        with:
+          swift-version: '6.3.3'
+      - name: Empaquetar DMG nativo (arm64)
+        run: |
+          chmod +x Scripts/build-release.sh
+          ./Scripts/build-release.sh "${GITHUB_REF_NAME#v}"
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          printf '%s\n' \
+            '**Transcriptor para Mac Apple Silicon** (macOS 26 o posterior).' \
+            '' \
+            '**Instalación**' \
+            '1. Descarga `Transcriptor-'"$VERSION"'.dmg` abajo.' \
+            '2. Abre el DMG y arrastra **Transcriptor** a la carpeta Aplicaciones.' \
+            '3. La primera vez que lo abras: clic con el botón derecho sobre la app → **Abrir** (el aviso es normal, la descarga está firmada de forma ad-hoc).' \
+            '' \
+            '**Primera transcripción**' \
+            '- Elige el idioma de tus grabaciones (español por defecto).' \
+            '- La primera transcripción de un idioma descarga su modelo de voz (lo gestiona macOS automáticamente) y te lo avisa antes; se necesita Internet solo esa vez. Las siguientes transcripciones funcionan sin conexión.' \
+            '' \
+            '**Privacidad**' \
+            '- Todo se procesa en tu Mac con la tecnología de voz de Apple en el dispositivo. No se sube nada.' \
+            > notes.md
+          gh release create "$GITHUB_REF_NAME" build/*.dmg \
+            --title "Transcriptor $VERSION — Mac Apple Silicon (macOS 26+)" \
+            --notes-file notes.md \
+            || { gh release upload "$GITHUB_REF_NAME" build/*.dmg --clobber; }
