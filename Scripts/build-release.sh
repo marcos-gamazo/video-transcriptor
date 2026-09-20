@@ -58,11 +58,62 @@ cp "$ROOT/Vendor/vosk/libvosk.dylib" "$FRAMEWORKS_DIR/libvosk.dylib"
 #   install_name_tool -id @rpath/libvosk.dylib "$FRAMEWORKS_DIR/libvosk.dylib"
 #   install_name_tool -change libvosk.dylib @rpath/libvosk.dylib "$MACOS_DIR/$APP_NAME"
 
+# Swift Concurrency back-deployment (macOS < 12.3): al compilar con target
+# anterior a 12.3, el binario enlaza (débilmente) @rpath/libswift_Concurrency.dylib
+# porque la app usa Swift Concurrency. En macOS 11 esa librería NO existe en el
+# sistema y, si no se embeve, dyld la deja en nulo (weak) y el runtime revienta
+# al usar el primer Task (crash en el demangler de libswiftCore). La copia del
+# toolchain es universal (arm64 + x86_64) y se resuelve vía @executable_path/../Frameworks.
+CONC_NEEDED=0
+if [[ -n "${SWIFT_TRIPLE:-}" && "$SWIFT_TRIPLE" =~ apple-macosx([0-9]+)\.([0-9]+) ]]; then
+  MAJOR="${BASH_REMATCH[1]}"
+  MINOR="${BASH_REMATCH[2]}"
+  if (( MAJOR < 12 )) || (( MAJOR == 12 && MINOR < 3 )); then
+    CONC_NEEDED=1
+  fi
+fi
+
+if [[ "$CONC_NEEDED" == 1 ]]; then
+  # Localiza el dir del runtime del toolchain igual que lo resuelve el driver:
+  #   swiftc -print-target-info  ->  paths.runtimeLibraryPaths[0]  (usr/lib/swift/macosx)
+  # Se admite override con SWIFT_TOOLCHAIN_DIR (por si el `swiftc` en PATH no
+  # pertenece al toolchain que compiló el binario).
+  CONC_LIB=""
+  RUNTIME_LIB_DIR="${SWIFT_TOOLCHAIN_DIR:-}/usr/lib/swift/macosx"
+  if [[ -f "$RUNTIME_LIB_DIR/libswift_Concurrency.dylib" ]]; then
+    CONC_LIB="$RUNTIME_LIB_DIR/libswift_Concurrency.dylib"
+  else
+    RUNTIME_LIB_DIR="$(swiftc -print-target-info 2>/dev/null \
+      | tr -d '\n ' \
+      | sed -n 's/.*"runtimeLibraryPaths":\["\([^"]*\)".*/\1/p')"
+    [[ -f "$RUNTIME_LIB_DIR/libswift_Concurrency.dylib" ]] \
+      && CONC_LIB="$RUNTIME_LIB_DIR/libswift_Concurrency.dylib"
+  fi
+  if [[ -z "$CONC_LIB" ]]; then
+    echo "ERROR: no encuentro libswift_Concurrency.dylib del toolchain." >&2
+    echo "       Define SWIFT_TOOLCHAIN_DIR (raíz del .xctoolchain) si el swiftc de PATH no es el toolchain." >&2
+    exit 1
+  fi
+  echo "▸ Embedding libswift_Concurrency.dylib (back-deployment macOS < 12.3)..."
+  cp "$CONC_LIB" "$FRAMEWORKS_DIR/libswift_Concurrency.dylib"
+  chmod 644 "$FRAMEWORKS_DIR/libswift_Concurrency.dylib"
+  BIN_ARCH=$(lipo -archs "$MACOS_DIR/$APP_NAME" | awk '{print $1}')
+  if ! lipo -archs "$FRAMEWORKS_DIR/libswift_Concurrency.dylib" | grep -q "$BIN_ARCH"; then
+    echo "ERROR: libswift_Concurrency.dylib ($(lipo -archs "$FRAMEWORKS_DIR/libswift_Concurrency.dylib")) no incluye la arquitectura $BIN_ARCH" >&2
+    exit 1
+  fi
+fi
+
 chmod 755 "$MACOS_DIR/$APP_NAME"
 chmod 644 "$FRAMEWORKS_DIR/libvosk.dylib"
 
 echo "▸ Verificando dependencias del binario..."
 otool -L "$MACOS_DIR/$APP_NAME" | grep -q "libvosk.dylib" && echo "   libvosk OK"
+if [[ "$CONC_NEEDED" == 1 ]]; then
+  otool -L "$MACOS_DIR/$APP_NAME" | grep -q "@rpath/libswift_Concurrency.dylib" \
+    && echo "   libswift_Concurrency (weak) OK"
+  ls -la "$FRAMEWORKS_DIR/libswift_Concurrency.dylib"
+fi
 
 echo "▸ Ad-hoc signing..."
 codesign --force --deep -s "$SIGN_IDENTITY" --options runtime "$APP_BUNDLE" 2>&1
