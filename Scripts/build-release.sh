@@ -28,11 +28,11 @@ if [[ "${SWIFT_TRIPLE:-}" == *x86_64* ]]; then
 fi
 
 echo "▸ Building $APP_NAME $VERSION (release)..."
-( cd "$ROOT" && swift build -c release "${SWIFT_ARGS[@]}" 2>&1 | grep -E "error:|Build complete|warning:" | head -5 )
+( cd "$ROOT" && swift build -c release ${SWIFT_ARGS[@]+"${SWIFT_ARGS[@]}"} 2>&1 | grep -E "error:|Build complete|warning:" | head -5 )
 
 BIN_DIR="$ROOT/.build/release"
 if [[ -n "${SWIFT_TRIPLE:-}" ]]; then
-  BIN_DIR="$(cd "$ROOT" && swift build -c release "${SWIFT_ARGS[@]}" --show-bin-path)"
+  BIN_DIR="$(cd "$ROOT" && swift build -c release ${SWIFT_ARGS[@]+"${SWIFT_ARGS[@]}"} --show-bin-path)"
   case "$BIN_DIR" in
     /*) ;;
     *) BIN_DIR="$ROOT/$BIN_DIR" ;;
@@ -74,87 +74,42 @@ if [[ -n "${SWIFT_TRIPLE:-}" && "$SWIFT_TRIPLE" =~ apple-macosx([0-9]+)\.([0-9]+
 fi
 
 if [[ "$CONC_NEEDED" == 1 ]]; then
-  # Localiza libswift_Concurrency.dylib del toolchain. El driver la busca en
-  # `paths.runtimeLibraryPaths` (igual que resuelve el enlazador), pero en CI
-  # el swiftc puede ser el de Xcode y no el toolchain que compiló; se prueban
-  # todas esas rutas más los toolchains instalados. Override: SWIFT_TOOLCHAIN_DIR.
-  CONC_LIB=""
-  CANDIDATES=()
-  if [[ -n "${SWIFT_TOOLCHAIN_DIR:-}" ]]; then
-    CANDIDATES+=("$SWIFT_TOOLCHAIN_DIR/usr/lib/swift/macosx")
-  fi
-  while IFS= read -r dir; do
-    [[ -n "$dir" ]] && CANDIDATES+=("$dir")
-  done < <(swiftc -print-target-info 2>/dev/null \
-    | tr -d '\n ' \
-    | sed -n 's/.*"runtimeLibraryPaths":\[\([^]]*\)\].*/\1/p' \
-    | tr ',' '\n' \
-    | sed 's/^"//; s/"$//' \
-    | grep -v '^$' | sort -u)
-  # runtimeResourcePath es el dir raíz del runtime del toolchain (add /macosx).
-  RSRC="$(swiftc -print-target-info 2>/dev/null \
-    | tr -d '\n ' \
-    | sed -n 's/.*"runtimeResourcePath":"\([^"]*\)".*/\1/p')"
-  [[ -n "$RSRC" ]] && CANDIDATES+=("$RSRC/macosx")
-  while IFS= read -r dir; do
-    [[ -n "$dir" ]] && CANDIDATES+=("$dir")
-  done < <(ls -d "$HOME"/Library/Developer/Toolchains/*/usr/lib/swift/macosx \
-    /Library/Developer/Toolchains/*/usr/lib/swift/macosx 2>/dev/null)
-  for dir in "${CANDIDATES[@]}"; do
-    if [[ -f "$dir/libswift_Concurrency.dylib" ]]; then
-      CONC_LIB="$dir/libswift_Concurrency.dylib"
-      break
-    fi
-  done
-  # Deriva la raíz del toolchain desde el `swift` resuelto en PATH (Swiftly
-  # instala shims/symlinks; subimos hasta hallar usr/lib/swift/macosx).
-  if [[ -z "$CONC_LIB" ]]; then
-    SWIFT_RESOLVED="$(command -v swift | xargs readlink -f 2>/dev/null || true)"
-    if [[ -n "$SWIFT_RESOLVED" ]]; then
-      D="$SWIFT_RESOLVED"
-      while [[ "$D" != "/" ]]; do
-        D="$(dirname "$D")"
-        if [[ -f "$D/usr/lib/swift/macosx/libswift_Concurrency.dylib" ]]; then
-          CONC_LIB="$D/usr/lib/swift/macosx/libswift_Concurrency.dylib"
-          break
-        fi
-      done
-    fi
-  fi
-  # Catch-all: buscar en todos los locations típicos de toolchains (Xcode,
-  # swift.org/Swiftly, Homebrew, hostedtoolcache de CI). Sin filtro de ruta:
-  # la dylib vive en usr/lib/swift/macosx en los toolchains de swift.org/brew,
-  # pero Xcode puede depositarla en otra parte.
-  if [[ -z "$CONC_LIB" ]]; then
-    BIN_ARCH_LATER="$(lipo -archs "$MACOS_DIR/$APP_NAME" 2>/dev/null | awk '{print $1}')"
-    while IFS= read -r lib; do
-      [[ -n "$lib" ]] || continue
-      if [[ -z "$BIN_ARCH_LATER" ]] \
-        || lipo -archs "$lib" 2>/dev/null | grep -q "$BIN_ARCH_LATER"; then
-        CONC_LIB="$lib"
-        break
-      fi
-    done < <(find "$HOME" \
-      /Library/Developer/Toolchains \
-      /Applications/Xcode*.app/Contents/Developer/Toolchains \
-      "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}" \
-      "$(xcode-select -p 2>/dev/null)" \
-      /opt/homebrew /usr/local \
-      -name libswift_Concurrency.dylib 2>/dev/null)
-  fi
-  if [[ -z "$CONC_LIB" ]]; then
-    echo "ERROR: no encuentro libswift_Concurrency.dylib del toolchain." >&2
-    echo "  Candidatos probados:" >&2
-    printf '  - %s\n' "${CANDIDATES[@]}" >&2
-    echo "       Definir SWIFT_TOOLCHAIN_DIR (raíz del .xctoolchain)." >&2
+  # Runtime de Swift Concurrency para back-deployment (macOS < 12.3).
+  #
+  # IMPORTANTE: la copia del runtime que trae el toolchain de swift.org 6.x
+  # (usr/lib/swift/macosx/libswift_Concurrency.dylib) está compilada contra un
+  # libswiftCore moderno y referencia símbolos de `Durations`/marcos 5.7+ que
+  # NO existen en el libswiftCore de macOS 11 → error de enlazado en arranque
+  # ("missing required bundle" / símbolo no resuelto). La librería correcta es
+  # el runtime "evergreen" de back-deploy que Apple congela en los toolchains
+  # de Xcode/CommandLineTools 13–15 (usr/lib/swift-5.5/macosx/…): minOS 10.9,
+  # universal arm64+x86_64, sin referencias a símbolos modernos, y que exporta
+  # toda la API de runtime que el binario compilado con Swift 6 necesite
+  # (swift_task_*, swift_continuation_*, swift_defaultActor_*, swift_async_*).
+  # Por eso se usa la copia VENDED en Vendor/swift-backdeploy/ (verificada),
+  # en lugar de descubrir la del toolchain, que en CI (Xcode 26) ni existe.
+  CONC_LIB="$ROOT/Vendor/swift-backdeploy/libswift_Concurrency.dylib"
+  if [[ ! -f "$CONC_LIB" ]]; then
+    echo "ERROR: falta la librería vended: $CONC_LIB" >&2
     exit 1
   fi
-  echo "▸ Embedding libswift_Concurrency.dylib (back-deployment macOS < 12.3)..."
+  echo "▸ Embedding libswift_Concurrency.dylib (back-deployment macOS < 12.3, runtime evergreen)..."
   cp "$CONC_LIB" "$FRAMEWORKS_DIR/libswift_Concurrency.dylib"
   chmod 644 "$FRAMEWORKS_DIR/libswift_Concurrency.dylib"
   BIN_ARCH=$(lipo -archs "$MACOS_DIR/$APP_NAME" | awk '{print $1}')
   if ! lipo -archs "$FRAMEWORKS_DIR/libswift_Concurrency.dylib" | grep -q "$BIN_ARCH"; then
     echo "ERROR: libswift_Concurrency.dylib ($(lipo -archs "$FRAMEWORKS_DIR/libswift_Concurrency.dylib")) no incluye la arquitectura $BIN_ARCH" >&2
+    exit 1
+  fi
+  # Verificación de que NO referencia símbolos de macOS 12.3+ (p. ej. Durations),
+  # que es lo que rompía en macOS 11 con la copia del toolchain de swift.org.
+  THIN_CONC="$(mktemp)"
+  lipo -thin "$BIN_ARCH" "$FRAMEWORKS_DIR/libswift_Concurrency.dylib" -output "$THIN_CONC" 2>/dev/null
+  VENDED_MINOS="$(vtool -show-build "$THIN_CONC" 2>/dev/null \
+    | grep -A2 -i LC_VERSION_MIN_MACOSX | tail -1 | awk '{print $2}')"
+  rm -f "$THIN_CONC"
+  if [[ -n "$VENDED_MINOS" ]] && [[ "$VENDED_MINOS" > "11.9" ]]; then
+    echo "ERROR: libswift_Concurrency.dylib vended tiene minOS $VENDED_MINOS (> 11), no sirve para back-deployment a macOS 11" >&2
     exit 1
   fi
 fi
