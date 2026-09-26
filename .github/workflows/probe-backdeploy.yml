@@ -1,0 +1,32 @@
+name: probe-backdeploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [probe-backdeploy]
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-13, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: xcodebuild -version
+      - name: Enumerar toolchains y minOS de libswift_Concurrency
+        run: |
+          set -euo pipefail
+          echo "=== Xcode toolchains ==="
+          for tc in /Applications/Xcode*.app/Contents/Developer/Toolchains /Applications/Xcode*.app/Contents/Developer/Toolchains/*.xctoolchain; do
+            [ -d "$tc" ] || continue
+            echo "== $tc/usr/lib =="
+            ls -1 "$tc/usr/lib" 2>/dev/null | grep -E '^swift' || true
+          done
+          echo "=== find libswift_Concurrency ==="
+          find / -name 'libswift_Concurrency.dylib' 2>/dev/null | while read -r lib; do
+            echo "==== $lib ===="
+            vtool -show-build "$lib" 2>/dev/null | sed -n '1,8p' || echo "vtool fallo"
+            echo "archs: $(lipo -archs "$lib" 2>/dev/null)"
+          done
