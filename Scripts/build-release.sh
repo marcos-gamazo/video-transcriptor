@@ -91,6 +91,11 @@ if [[ "$CONC_NEEDED" == 1 ]]; then
     | tr ',' '\n' \
     | sed 's/^"//; s/"$//' \
     | grep -v '^$' | sort -u)
+  # runtimeResourcePath es el dir raíz del runtime del toolchain (add /macosx).
+  RSRC="$(swiftc -print-target-info 2>/dev/null \
+    | tr -d '\n ' \
+    | sed -n 's/.*"runtimeResourcePath":"\([^"]*\)".*/\1/p')"
+  [[ -n "$RSRC" ]] && CANDIDATES+=("$RSRC/macosx")
   while IFS= read -r dir; do
     [[ -n "$dir" ]] && CANDIDATES+=("$dir")
   done < <(ls -d "$HOME"/Library/Developer/Toolchains/*/usr/lib/swift/macosx \
@@ -101,8 +106,21 @@ if [[ "$CONC_NEEDED" == 1 ]]; then
       break
     fi
   done
+  # Catch-all: buscar en los locations típicos de toolchains (Xcode, swift.org).
+  if [[ -z "$CONC_LIB" ]]; then
+    while IFS= read -r lib; do
+      [[ -n "$lib" ]] && CONC_LIB="$lib" && break
+    done < <(find "$HOME/Library/Developer/Toolchains" \
+      /Library/Developer/Toolchains \
+      /Applications/Xcode*.app/Contents/Developer/Toolchains \
+      "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}" \
+      "$(xcode-select -p 2>/dev/null)" \
+      -name libswift_Concurrency.dylib -path '*/usr/lib/swift/macosx/*' 2>/dev/null)
+  fi
   if [[ -z "$CONC_LIB" ]]; then
     echo "ERROR: no encuentro libswift_Concurrency.dylib del toolchain." >&2
+    echo "  Candidatos probados:" >&2
+    printf '  - %s\n' "${CANDIDATES[@]}" >&2
     echo "       Definir SWIFT_TOOLCHAIN_DIR (raíz del .xctoolchain)." >&2
     exit 1
   fi
