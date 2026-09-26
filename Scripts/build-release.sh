@@ -106,16 +106,41 @@ if [[ "$CONC_NEEDED" == 1 ]]; then
       break
     fi
   done
-  # Catch-all: buscar en los locations típicos de toolchains (Xcode, swift.org).
+  # Deriva la raíz del toolchain desde el `swift` resuelto en PATH (Swiftly
+  # instala shims/symlinks; subimos hasta hallar usr/lib/swift/macosx).
   if [[ -z "$CONC_LIB" ]]; then
+    SWIFT_RESOLVED="$(command -v swift | xargs readlink -f 2>/dev/null || true)"
+    if [[ -n "$SWIFT_RESOLVED" ]]; then
+      D="$SWIFT_RESOLVED"
+      while [[ "$D" != "/" ]]; do
+        D="$(dirname "$D")"
+        if [[ -f "$D/usr/lib/swift/macosx/libswift_Concurrency.dylib" ]]; then
+          CONC_LIB="$D/usr/lib/swift/macosx/libswift_Concurrency.dylib"
+          break
+        fi
+      done
+    fi
+  fi
+  # Catch-all: buscar en todos los locations típicos de toolchains (Xcode,
+  # swift.org/Swiftly, Homebrew, hostedtoolcache de CI). Sin filtro de ruta:
+  # la dylib vive en usr/lib/swift/macosx en los toolchains de swift.org/brew,
+  # pero Xcode puede depositarla en otra parte.
+  if [[ -z "$CONC_LIB" ]]; then
+    BIN_ARCH_LATER="$(lipo -archs "$MACOS_DIR/$APP_NAME" 2>/dev/null | awk '{print $1}')"
     while IFS= read -r lib; do
-      [[ -n "$lib" ]] && CONC_LIB="$lib" && break
-    done < <(find "$HOME/Library/Developer/Toolchains" \
+      [[ -n "$lib" ]] || continue
+      if [[ -z "$BIN_ARCH_LATER" ]] \
+        || lipo -archs "$lib" 2>/dev/null | grep -q "$BIN_ARCH_LATER"; then
+        CONC_LIB="$lib"
+        break
+      fi
+    done < <(find "$HOME" \
       /Library/Developer/Toolchains \
       /Applications/Xcode*.app/Contents/Developer/Toolchains \
       "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}" \
       "$(xcode-select -p 2>/dev/null)" \
-      -name libswift_Concurrency.dylib -path '*/usr/lib/swift/macosx/*' 2>/dev/null)
+      /opt/homebrew /usr/local \
+      -name libswift_Concurrency.dylib 2>/dev/null)
   fi
   if [[ -z "$CONC_LIB" ]]; then
     echo "ERROR: no encuentro libswift_Concurrency.dylib del toolchain." >&2
