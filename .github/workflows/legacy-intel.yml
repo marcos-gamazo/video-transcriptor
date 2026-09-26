@@ -11,13 +11,13 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Versiones
         run: |
           swift --version
           xcodebuild -version
       - name: Instalar toolchain swift.org 6.3
-        uses: swift-actions/setup-swift@v3
+        uses: SwiftyLab/setup-swift@v1.14.1
         with:
           swift-version: '6.3.3'
       - name: Tests nativos arm64
@@ -28,7 +28,7 @@ jobs:
         run: swift --version && swift test 2>&1 | tee tests.log
       - name: Subir log de tests si falla
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tests-log
           path: tests.log
@@ -38,7 +38,7 @@ jobs:
     name: Build x86_64 (macOS 11)
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Versiones
         run: swift --version
       - name: Cross-compile x86_64 con deployment macOS 11
@@ -59,7 +59,7 @@ jobs:
           echo "-- deployment target --"
           vtool -show-build "$BIN" | head -8 || otool -l "$BIN" | grep -A3 LC_BUILD_VERSION | head -12
       - name: Subir binario como artefacto
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: transcriptor-x86_64-macos11
           path: .build/x86_64-apple-macosx/debug/Transcriptor
