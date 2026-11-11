@@ -20,10 +20,21 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - name: Instalar toolchain swift.org 6.3
-        uses: swift-actions/setup-swift@v3
-        with:
-          swift-version: '6.3.3'
+      # Se instala el paquete oficial de swift.org en lugar de usar
+      # swift-actions/setup-swift, que sigue en Node.js 20 (obsoleto en Actions).
+      - name: Instalar toolchain swift.org 6.3.3
+        env:
+          SWIFT_VERSION: '6.3.3'
+        run: |
+          PKG="swift-${SWIFT_VERSION}-RELEASE-osx.pkg"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$PKG" \
+            "https://download.swift.org/swift-${SWIFT_VERSION}-release/xcode/swift-${SWIFT_VERSION}-RELEASE/$PKG"
+          pkgutil --check-signature "$RUNNER_TEMP/$PKG"
+          sudo installer -pkg "$RUNNER_TEMP/$PKG" -target /
+          rm -f "$RUNNER_TEMP/$PKG"
+          TOOLCHAIN="/Library/Developer/Toolchains/swift-${SWIFT_VERSION}-RELEASE.xctoolchain"
+          echo "$TOOLCHAIN/usr/bin" >> "$GITHUB_PATH"
+          "$TOOLCHAIN/usr/bin/swift" --version
       - name: Empaquetar DMG nativo (arm64)
         run: |
           chmod +x Scripts/build-release.sh

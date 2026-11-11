@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transcriptor is a native macOS application for transcribing audio recordings and videos into Markdown text.
+Transcriptor is a native macOS application for transcribing audio recordings and videos into Markdown (.md) or plain text (.txt).
 
 The application is intended primarily for non-technical users. The main interaction should therefore be simple, visual, and predictable.
 
@@ -152,8 +152,8 @@ flowchart TD
     SmallAudioBuffers --> SpeechAnalyzer
     SpeechAnalyzer --> TranscriptionResults[transcription results]
     TranscriptionResults --> ParagraphAggregation[paragraph aggregation]
-    ParagraphAggregation --> MarkdownWriter
-    MarkdownWriter --> Disk2[Disk]
+    ParagraphAggregation --> TranscriptWriter
+    TranscriptWriter --> Disk2[Disk]
 ```
 
 The memory footprint should remain reasonably stable as media duration increases.
@@ -184,7 +184,7 @@ The pipeline should be capable of:
 flowchart TD
     SpeechTranscriber --> TranscriptionSegment
     TranscriptionSegment --> ParagraphAggregator
-    ParagraphAggregator --> MarkdownWriter
+    ParagraphAggregator --> TranscriptWriter
 ```
 
 Once processed data is no longer required, it should be released.
@@ -215,13 +215,17 @@ The internal pipeline should retain more precise timing information when availab
 
 ## Output
 
-The initial output format is Markdown only.
+The user can choose the output format:
+
+* Markdown (`.md`, default);
+* plain text (`.txt`), added by the `add-plain-text-output` change.
+
+In plain text, timestamps are written inline at the start of each paragraph (`[00:03:47] Como sabéis…`) and no Markdown syntax is emitted.
 
 Do not implement:
 
 * SRT
 * VTT
-* TXT
 * DOCX
 * PDF
 
@@ -238,7 +242,8 @@ reunion.mp4
 should normally produce:
 
 ```text
-reunion.md
+reunion.md   (Markdown)
+reunion.txt  (texto)
 ```
 
 ## Job Processing
@@ -274,10 +279,10 @@ The primary workflow should be:
 1. Drag files into the application or select them.
 2. Select the transcription language.
 3. Enable or disable timestamps.
-4. Select the destination folder.
+4. Select the destination folder and the output format.
 5. Start transcription.
 6. Monitor progress.
-7. Find the generated Markdown file.
+7. Find the generated Markdown or text file.
 
 Use standard macOS controls wherever possible.
 

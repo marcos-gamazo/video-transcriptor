@@ -4,7 +4,7 @@
 
 This repository contains a native macOS transcription application called Transcriptor.
 
-The application transcribes audio recordings and videos into Markdown using Apple's on-device Speech framework.
+The application transcribes audio recordings and videos into Markdown or plain text using Apple's on-device Speech framework.
 
 ## Before Making Changes
 
@@ -120,8 +120,8 @@ flowchart TD
     SmallAudioBuffers --> SpeechAnalyzer
     SpeechAnalyzer --> TranscriptionResults[transcription results]
     TranscriptionResults --> ParagraphAggregation[paragraph aggregation]
-    ParagraphAggregation --> MarkdownWriter
-    MarkdownWriter --> Disk[disk]
+    ParagraphAggregation --> TranscriptWriter
+    TranscriptWriter --> Disk[disk]
 ```
 
 ## Concurrency
@@ -177,17 +177,17 @@ When timestamps are disabled:
 
 The exporter should decide whether timestamps are visible.
 
-The transcription engine should not care whether the user wants timestamps in the final Markdown.
+The transcription engine should not care whether the user wants timestamps in the final document.
 
 ## Output
 
-Initial output format is Markdown.
+Output formats are Markdown (`.md`, default) and plain text (`.txt`); see "Output Formats".
 
 Do not add additional export formats unless explicitly requested.
 
-The Markdown writer should support incremental writing.
+The transcript writer should support incremental writing.
 
-Avoid constructing the complete Markdown document in memory before writing it.
+Avoid constructing the complete output document in memory before writing it.
 
 ## Architecture
 
@@ -208,7 +208,7 @@ Examples:
 * `AudioStreamProvider` → audio streaming.
 * `TranscriptionQueue` → job scheduling.
 * `ParagraphAggregator` → grouping transcription segments.
-* `MarkdownWriter` → Markdown output.
+* `TranscriptWriter` → Markdown / plain-text output.
 * `AppLogger` → diagnostics.
 
 Do not create abstractions without a concrete reason.
@@ -273,7 +273,7 @@ Prioritize testing:
 * cancellation;
 * queue state transitions;
 * paragraph aggregation;
-* Markdown formatting;
+* Markdown and plain-text formatting;
 * timestamp formatting;
 * output naming;
 * error mapping.
@@ -292,6 +292,18 @@ TOOL=/opt/homebrew/opt/swift/Swift-6.3.xctoolchain/usr/bin
 ```
 
 This provides a fully working Swift Testing integration (discovery, execution, failure exit codes). Run tests with this toolchain, never with the system `swift`.
+
+If the default CommandLineTools SDK is newer than this toolchain supports (e.g. the macOS 27 SDK with Swift 6.3, which fails with errors like `cannot find type 'Locale' in scope`), point `SDKROOT` to an older installed SDK:
+
+```sh
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk "$TOOL/swift" test
+```
+
+If the repository was moved to another path, delete `.build` first (stale module cache errors mentioning the old path).
+
+## Output Formats
+
+Output can be Markdown (`.md`, default) or plain text (`.txt`), chosen per job via `OutputFormat`. `TranscriptWriter` is the only component that knows how each format renders titles, paragraphs and timestamps. Do not add further formats unless explicitly requested.
 
 ## Performance Validation
 
