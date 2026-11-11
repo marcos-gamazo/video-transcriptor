@@ -1,15 +1,23 @@
 import Foundation
 
-final class MarkdownWriter {
+/// Escribe la transcripción de forma incremental en Markdown o texto plano.
+final class TranscriptWriter {
     private let outputURL: URL
+    private let format: OutputFormat
     private let includeTimestamps: Bool
     private let title: String?
     private var handle: FileHandle?
     private(set) var isOpen = false
     private var isClosed = false
 
-    init(outputURL: URL, includeTimestamps: Bool, title: String? = nil) {
+    init(
+        outputURL: URL,
+        format: OutputFormat = .markdown,
+        includeTimestamps: Bool,
+        title: String? = nil
+    ) {
         self.outputURL = outputURL
+        self.format = format
         self.includeTimestamps = includeTimestamps
         self.title = title
     }
@@ -42,19 +50,13 @@ final class MarkdownWriter {
         isOpen = true
 
         if let title, !title.isEmpty {
-            try write(string: "# \(title)\n\n")
+            try write(string: Self.titleBlock(title, format: format))
         }
     }
 
     func write(_ paragraph: TranscriptionParagraph) throws {
         try open()
-        let block: String
-        if includeTimestamps {
-            block = "### [\(Self.timestampString(from: paragraph.start))]\n\n\(paragraph.text)\n\n"
-        } else {
-            block = "\(paragraph.text)\n\n"
-        }
-        try write(string: block)
+        try write(string: Self.paragraphBlock(paragraph, format: format, includeTimestamps: includeTimestamps))
     }
 
     func close() throws {
@@ -98,6 +100,28 @@ final class MarkdownWriter {
         } catch {
             AppLogger.export.error("No se pudo escribir en \(outputURL.path): \(error)")
             throw OutputError.writeFailed("\(outputURL.path): \(error)")
+        }
+    }
+
+    static func titleBlock(_ title: String, format: OutputFormat) -> String {
+        switch format {
+        case .markdown: return "# \(title)\n\n"
+        case .plainText: return "\(title)\n\n"
+        }
+    }
+
+    static func paragraphBlock(
+        _ paragraph: TranscriptionParagraph,
+        format: OutputFormat,
+        includeTimestamps: Bool
+    ) -> String {
+        guard includeTimestamps else {
+            return "\(paragraph.text)\n\n"
+        }
+        let timestamp = timestampString(from: paragraph.start)
+        switch format {
+        case .markdown: return "### [\(timestamp)]\n\n\(paragraph.text)\n\n"
+        case .plainText: return "[\(timestamp)] \(paragraph.text)\n\n"
         }
     }
 

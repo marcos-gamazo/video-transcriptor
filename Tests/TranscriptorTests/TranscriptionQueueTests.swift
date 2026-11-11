@@ -397,7 +397,7 @@ struct TranscriptionQueueTests {
         #expect(started)
 
         let newLocale = Locale(identifier: "en_US")
-        let updated = await queue.applyPendingSettings(locale: newLocale, includeTimestamps: true)
+        let updated = await queue.applyPendingSettings(locale: newLocale, includeTimestamps: true, outputFormat: .plainText)
         #expect(updated == 1)
 
         let snapshot = await queue.snapshot
@@ -407,12 +407,45 @@ struct TranscriptionQueueTests {
         if let active {
             #expect(active.job.locale != newLocale)
             #expect(active.job.includeTimestamps == false)
+            #expect(active.job.outputFormat == .markdown)
         }
         #expect(pending != nil)
         if let pending {
             #expect(pending.job.locale == newLocale)
             #expect(pending.job.includeTimestamps == true)
+            #expect(pending.job.outputFormat == .plainText)
         }
+    }
+
+    @Test("Un trabajo en formato texto genera un archivo .txt sin sintaxis Markdown")
+    func plainTextJobWritesTxtFile() async throws {
+        let stub = StubTranscribing()
+        await stub.setHandler { _, _, _, onSegment in
+            onSegment(TranscriptionSegment(start: .seconds(0), end: .seconds(2), text: "Hola a todos."))
+            return TranscriptionSummary(segmentCount: 1, finalEndTime: .seconds(2))
+        }
+
+        let dir = try tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let queue = TranscriptionQueue(service: stub, destinationDirectory: dir)
+        let job = TranscriptionJob(
+            sourceURL: URL(fileURLWithPath: "/tmp/entrevista.m4a"),
+            locale: Locale(identifier: "es_ES"),
+            includeTimestamps: true,
+            outputFormat: .plainText
+        )
+        await queue.enqueue(jobs: [job])
+        await queue.start()
+
+        let done = await waitUntil { [queue] in
+            await queue.snapshot.entries.first?.state == .completed
+        }
+        #expect(done)
+
+        let outputURL = try #require(await queue.snapshot.entries.first?.outputURL)
+        #expect(outputURL.lastPathComponent == "entrevista.txt")
+        let content = try String(contentsOf: outputURL, encoding: .utf8)
+        #expect(content == "entrevista\n\n[00:00:00] Hola a todos.\n\n")
     }
 
     @Test("Un fallo guarda un mensaje comprensible para el usuario")

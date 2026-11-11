@@ -5,17 +5,20 @@ struct TranscriptionJob: Identifiable, Equatable, Sendable {
     let sourceURL: URL
     let locale: Locale
     let includeTimestamps: Bool
+    let outputFormat: OutputFormat
 
     init(
         id: UUID = UUID(),
         sourceURL: URL,
         locale: Locale,
-        includeTimestamps: Bool
+        includeTimestamps: Bool,
+        outputFormat: OutputFormat = .markdown
     ) {
         self.id = id
         self.sourceURL = sourceURL
         self.locale = locale
         self.includeTimestamps = includeTimestamps
+        self.outputFormat = outputFormat
     }
 }
 

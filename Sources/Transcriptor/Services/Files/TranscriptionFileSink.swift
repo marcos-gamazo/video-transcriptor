@@ -1,19 +1,20 @@
 import Foundation
 
-/// Agrega segmentos en párrafos y los escribe de forma incremental en Markdown.
+/// Agrega segmentos en párrafos y los escribe de forma incremental en el formato elegido.
 ///
 /// El ciclo de vida es por trabajo: `open()` antes de transcribir, `append(_:)`
 /// por cada segmento, y bien `finish()` (éxito) o `abort()` (cancelación/fallo).
 /// Todas las llamadas se producen de forma secuencial dentro de un mismo trabajo,
 /// por lo que no necesita sincronización interna.
-final class MarkdownTranscriptionSink: @unchecked Sendable {
-    private let writer: MarkdownWriter
+final class TranscriptionFileSink: @unchecked Sendable {
+    private let writer: TranscriptWriter
     private var aggregator = ParagraphAggregator()
     private(set) var paragraphCount = 0
 
-    init(outputURL: URL, includeTimestamps: Bool, title: String? = nil) {
-        self.writer = MarkdownWriter(
+    init(outputURL: URL, format: OutputFormat = .markdown, includeTimestamps: Bool, title: String? = nil) {
+        self.writer = TranscriptWriter(
             outputURL: outputURL,
+            format: format,
             includeTimestamps: includeTimestamps,
             title: title
         )

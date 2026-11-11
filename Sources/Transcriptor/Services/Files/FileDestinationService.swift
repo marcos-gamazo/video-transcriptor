@@ -1,14 +1,14 @@
 import Foundation
 
 struct FileDestinationService {
-    static func markdownFileName(for sourceURL: URL) -> String {
+    static func outputFileName(for sourceURL: URL, format: OutputFormat) -> String {
         let base = sourceURL.deletingPathExtension().lastPathComponent
         let stem = base.isEmpty ? "transcripcion" : base
-        return stem + ".md"
+        return stem + "." + format.fileExtension
     }
 
-    static func uniqueOutputURL(for sourceURL: URL, in directory: URL) -> URL {
-        let name = markdownFileName(for: sourceURL)
+    static func uniqueOutputURL(for sourceURL: URL, in directory: URL, format: OutputFormat) -> URL {
+        let name = outputFileName(for: sourceURL, format: format)
         let stem = (name as NSString).deletingPathExtension
         let ext = (name as NSString).pathExtension
 

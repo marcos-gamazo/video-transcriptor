@@ -22,6 +22,7 @@ final class TranscriptionViewModel {
     var languageOptions: [LanguageOption] = []
     var selectedLanguageID = "es"
     var includeTimestamps = false
+    var outputFormat: OutputFormat = .markdown
     var areLanguagesLoading = true
     var isImportingFiles = false
     var destinationDirectory: URL = TranscriptionViewModel.defaultDestination
@@ -89,7 +90,12 @@ final class TranscriptionViewModel {
         }
         guard !valid.isEmpty else { return }
         let jobs = valid.map {
-            TranscriptionJob(sourceURL: $0, locale: selectedLanguage, includeTimestamps: includeTimestamps)
+            TranscriptionJob(
+                sourceURL: $0,
+                locale: selectedLanguage,
+                includeTimestamps: includeTimestamps,
+                outputFormat: outputFormat
+            )
         }
         await queue.enqueue(jobs: jobs)
     }
@@ -103,7 +109,11 @@ final class TranscriptionViewModel {
     }
 
     func start() async {
-        await queue.applyPendingSettings(locale: selectedLanguage, includeTimestamps: includeTimestamps)
+        await queue.applyPendingSettings(
+            locale: selectedLanguage,
+            includeTimestamps: includeTimestamps,
+            outputFormat: outputFormat
+        )
         await queue.start()
     }
 

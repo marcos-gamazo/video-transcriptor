@@ -68,6 +68,16 @@ struct TranscriptionView: View {
                 Spacer(minLength: 12)
                 Button("Cambiar…") { viewModel.chooseDestination() }
                     .disabled(viewModel.isProcessing)
+
+                Picker("Formato", selection: $viewModel.outputFormat) {
+                    ForEach(OutputFormat.allCases) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                }
+                .pickerStyle(.menu)
+                .fixedSize()
+                .disabled(viewModel.isProcessing)
+                .help("El tipo de archivo en el que se guardará la transcripción")
             }
             .padding(.horizontal, 20)
 

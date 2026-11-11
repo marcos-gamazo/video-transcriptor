@@ -1,6 +1,6 @@
 # Transcriptor
 
-macOS Apple Silicon app that transcribes audio and video files into Markdown. All processing is local using Apple's Speech framework — no data leaves your Mac.
+macOS Apple Silicon app that transcribes audio and video files into Markdown (.md) or plain text (.txt). All processing is local using Apple's Speech framework — no data leaves your Mac.
 
 ## Requirements
 
@@ -57,7 +57,7 @@ Output: `build/Transcriptor-1.0.0.dmg`
 3. Select the transcription language (Spanish by default)
 4. Toggle **Incluir timestamps** to add paragraph timestamps to the output
 5. Click **Transcribir** (or press `⇧⌘T`)
-6. The generated Markdown file appears in the destination folder (Movies by default)
+6. The generated file (.md or .txt, chosen in "Formato") appears in the destination folder (Movies by default)
 
 **Supported formats:** mp3, m4a, wav, mp4, mov, m4v
 
@@ -79,8 +79,8 @@ flowchart TD
     TranscriptionService --> SpeechAnalyzerService
     SpeechAnalyzerService --> AudioStreamProvider
     TranscriptionQueue --> ParagraphAggregator
-    ParagraphAggregator --> MarkdownWriter
-    MarkdownWriter --> disk[(disk)]
+    ParagraphAggregator --> TranscriptWriter
+    TranscriptWriter --> disk[(disk)]
 ```
 
 All media processing is streaming — no full file or audio track is ever loaded into memory.

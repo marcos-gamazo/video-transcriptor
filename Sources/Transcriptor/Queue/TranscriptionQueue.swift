@@ -71,31 +71,25 @@ actor TranscriptionQueue {
         await ensureWorker()
     }
 
-    /// Actualiza el idioma y los timestamps de los trabajos todavía pendientes.
+    /// Actualiza el idioma, los timestamps y el formato de los trabajos todavía pendientes.
     ///
     /// Devuelve el número de trabajos actualizados. No afecta al trabajo activo.
     @discardableResult
-    func applyPendingSettings(locale: Locale?, includeTimestamps: Bool?) -> Int {
+    func applyPendingSettings(
+        locale: Locale?,
+        includeTimestamps: Bool?,
+        outputFormat: OutputFormat? = nil
+    ) -> Int {
         var updated = 0
         for index in entries.indices where entries[index].state == .pending {
-            var job = entries[index].job
-            if let locale {
-                job = TranscriptionJob(
-                    id: job.id,
-                    sourceURL: job.sourceURL,
-                    locale: locale,
-                    includeTimestamps: job.includeTimestamps
-                )
-            }
-            if let includeTimestamps {
-                job = TranscriptionJob(
-                    id: job.id,
-                    sourceURL: job.sourceURL,
-                    locale: job.locale,
-                    includeTimestamps: includeTimestamps
-                )
-            }
-            entries[index].job = job
+            let job = entries[index].job
+            entries[index].job = TranscriptionJob(
+                id: job.id,
+                sourceURL: job.sourceURL,
+                locale: locale ?? job.locale,
+                includeTimestamps: includeTimestamps ?? job.includeTimestamps,
+                outputFormat: outputFormat ?? job.outputFormat
+            )
             updated += 1
         }
         if updated > 0 { emit() }
@@ -176,13 +170,18 @@ actor TranscriptionQueue {
         }
 
         let job = entries[index].job
-        let outputURL = FileDestinationService.uniqueOutputURL(for: job.sourceURL, in: destinationDirectory)
+        let outputURL = FileDestinationService.uniqueOutputURL(
+            for: job.sourceURL,
+            in: destinationDirectory,
+            format: job.outputFormat
+        )
         entries[index].outputURL = outputURL
         entries[index].state = .preparing
         emit(immediate: true)
 
-        let sink = MarkdownTranscriptionSink(
+        let sink = TranscriptionFileSink(
             outputURL: outputURL,
+            format: job.outputFormat,
             includeTimestamps: job.includeTimestamps,
             title: job.sourceURL.deletingPathExtension().lastPathComponent
         )
@@ -244,7 +243,7 @@ actor TranscriptionQueue {
     private func runTranscription(
         job: TranscriptionJob,
         id: UUID,
-        sink: MarkdownTranscriptionSink,
+        sink: TranscriptionFileSink,
         writeErrors: LockedError
     ) async throws -> TranscriptionSummary {
         try await service.transcribe(
@@ -287,7 +286,7 @@ actor TranscriptionQueue {
         emit()
     }
 
-    private func finalizeSuccess(index: Int, sink: MarkdownTranscriptionSink, outputURL: URL) {
+    private func finalizeSuccess(index: Int, sink: TranscriptionFileSink, outputURL: URL) {
         entries[index].state = .completed
         entries[index].progress = TranscriptionProgress(overall: 1, download: 0, transcription: 1)
         entries[index].outputURL = outputURL
@@ -295,7 +294,7 @@ actor TranscriptionQueue {
         emit()
     }
 
-    private func finalizeFailure(index: Int, sink: MarkdownTranscriptionSink, error: Error) {
+    private func finalizeFailure(index: Int, sink: TranscriptionFileSink, error: Error) {
         sink.abort()
         entries[index].state = .failed
         entries[index].failureMessage = UserErrorMessage.message(for: error)
@@ -303,7 +302,7 @@ actor TranscriptionQueue {
         emit()
     }
 
-    private func finalizeCancelled(index: Int, sink: MarkdownTranscriptionSink) {
+    private func finalizeCancelled(index: Int, sink: TranscriptionFileSink) {
         sink.abort()
         entries[index].state = .cancelled
         AppLogger.queue.info("Trabajo cancelado")
